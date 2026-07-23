@@ -7,7 +7,16 @@
   const readyPromise = new Promise(resolve => { readyResolve = resolve; });
   const listeners = [];
 
+  function normalizeMeasurements(value) {
+    if (!value) return {};
+    if (typeof value === "string") {
+      try { return JSON.parse(value); } catch (_error) { return {}; }
+    }
+    return typeof value === "object" ? value : {};
+  }
+
   function savedFromRow(row) {
+    const measurements = normalizeMeasurements(row.measurements);
     return {
       id: row.id,
       brand: row.brand || "",
@@ -17,7 +26,7 @@
       condition: row.condition || "B+ 좋은 상태",
       price: Number(row.price || 0),
       description: row.description || "",
-      measurements: row.measurements || {},
+      measurements,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
