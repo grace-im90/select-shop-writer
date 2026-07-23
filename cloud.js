@@ -59,9 +59,9 @@
     currentUser = data.session?.user || null;
     readyResolve(currentUser);
     await notify();
-    client.auth.onAuthStateChange(async (_event, session) => {
+    client.auth.onAuthStateChange((_event, session) => {
       currentUser = session?.user || null;
-      await notify();
+      setTimeout(() => notify(), 0);
     });
   }
 
