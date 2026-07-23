@@ -9,4 +9,8 @@
 - 저장 상품 목차, 검색, 수정, 삭제
 - 관리용 판매 가격 저장
 
-GitHub Pages에서 동작하며 상품 및 설정 데이터는 사용 중인 브라우저에 저장됩니다.
+GitHub Pages에서 동작하며 Supabase 로그인 후 저장 상품과 불러온 상품 목록을 여러 기기에서 동기화할 수 있습니다. 로그인하지 않은 경우에는 사용 중인 브라우저에만 저장됩니다.
+
+## Supabase 설정
+
+Supabase SQL Editor에서 `supabase-setup.sql`을 실행하면 사용자별 판매글 및 상품 목록 테이블과 Row Level Security 정책이 생성됩니다.
