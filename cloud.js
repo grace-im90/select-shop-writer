@@ -47,11 +47,13 @@
     const login = document.getElementById("cloudLogin");
     const signup = document.getElementById("cloudSignup");
     const logout = document.getElementById("cloudLogout");
+    const sync = document.getElementById("cloudSync");
     if (!status) return;
     status.textContent = message || (currentUser ? `${currentUser.email} · 클라우드 동기화 중` : "로그인하면 PC와 휴대폰에서 같은 데이터를 볼 수 있습니다.");
     status.classList.toggle("connected", Boolean(currentUser));
     [email, password, login, signup].forEach(element => element?.classList.toggle("hidden", Boolean(currentUser)));
     logout?.classList.toggle("hidden", !currentUser);
+    sync?.classList.toggle("hidden", !currentUser);
   }
 
   async function initialize() {
