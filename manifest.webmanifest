@@ -1,0 +1,18 @@
+{
+  "name": "셀렉상회 판매글 메이커",
+  "short_name": "셀렉상회",
+  "description": "당근·후르츠 판매글 작성 및 상품 관리",
+  "start_url": "./?app=26",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#356AE6",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
