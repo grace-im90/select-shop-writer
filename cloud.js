@@ -16,7 +16,19 @@
   }
 
   function savedFromRow(row) {
-    const measurements = normalizeMeasurements(row.measurements);
+    const measurements = { ...normalizeMeasurements(row.measurements) };
+    if (!measurements.__draft || typeof measurements.__draft !== "object") {
+      measurements.__draft = {
+        brand: measurements.__brand ?? row.brand ?? "",
+        name: measurements.__name ?? row.name ?? "",
+        productType: measurements.__productType ?? row.product_type ?? "상의",
+        size: measurements.__size ?? row.size ?? "표기 없음",
+        condition: measurements.__condition ?? row.condition ?? "B+ 좋은 상태",
+        price: Number(measurements.__price ?? row.price ?? 0),
+        description: measurements.__description ?? row.description ?? "",
+        notice: measurements.__notice ?? ""
+      };
+    }
     return {
       id: row.id,
       brand: row.brand || "",
