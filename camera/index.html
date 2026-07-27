@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>셀렉상회 옷 사진 촬영</title>
+  <link rel="icon" type="image/svg+xml" href="../icon.svg?v=1">
+  <link rel="manifest" href="../manifest.webmanifest?v=1">
+  <meta name="theme-color" content="#356AE6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="셀렉상회">
+  <style>
+    :root{--ink:#172033;--muted:#687386;--blue:#356ae6;--soft:#eaf1ff;--line:#dfe5ed;--bg:#f4f7fb;--ok:#12a875;--danger:#d14343}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Pretendard,"Apple SD Gothic Neo","Noto Sans KR",Arial,sans-serif}button,input{font:inherit}button,label{cursor:pointer}.hidden{display:none!important}
+    .top{display:flex;align-items:center;gap:24px;padding:22px 4vw;background:#fff;border-bottom:1px solid var(--line)}.brandline{color:var(--blue);font-size:10px;font-weight:800;letter-spacing:.14em}.top h1{margin:3px 0 0;font-size:26px;letter-spacing:-.04em}.top p{margin:0;padding-left:24px;border-left:1px solid var(--line);color:var(--muted);font-size:13px}.topnav{display:flex;gap:6px;margin-left:auto}.topnav a{padding:9px 13px;border-radius:8px;color:#627087;font-size:11px;font-weight:750;text-decoration:none}.topnav a.on{background:var(--blue);color:#fff}.topnav a:not(.on):hover{background:var(--soft);color:var(--blue)}
+    .wrap{width:min(1100px,calc(100% - 34px));margin:24px auto 60px}.hero{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 12px 35px rgba(23,32,51,.05)}.hero h2{margin:0 0 7px;font-size:25px;letter-spacing:-.04em}.hero p{margin:0;color:var(--muted);font-size:12px;line-height:1.7}.privacy{flex:none;padding:9px 12px;border-radius:999px;background:#e9fbf5;color:#07855d;font-size:10px;font-weight:800}
+    .camera-card{margin-top:16px;padding:22px;border:1px solid var(--line);border-radius:18px;background:#fff}.field label{display:block;margin-bottom:7px;font-size:11px;font-weight:800}.field input{width:100%;height:46px;padding:0 14px;border:1px solid #d5dde7;border-radius:10px;outline:none}.field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(53,106,230,.1)}
+    .capture-actions{display:grid;grid-template-columns:1.35fr .65fr;gap:10px;margin-top:15px}.capture-btn,.album-btn{display:grid;place-items:center;min-height:72px;border-radius:13px;font-weight:850}.capture-btn{background:linear-gradient(135deg,#3d74ef,#2860db);color:#fff;box-shadow:0 10px 22px rgba(53,106,230,.22)}.capture-btn span{display:block;margin-top:4px;font-size:9px;font-weight:600;opacity:.82}.album-btn{border:1px solid #cad6e8;background:#f8faff;color:#42516a}.album-btn span{display:block;margin-top:4px;color:#7d899b;font-size:9px;font-weight:600}
+    .guide{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.guide div{padding:11px;border:1px solid #e2e7ee;border-radius:10px;background:#f8fafd;text-align:center}.guide b{display:block;font-size:10px}.guide span{display:block;margin-top:3px;color:#8792a2;font-size:8.5px}
+    .photo-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:23px 0 11px}.photo-head h3{margin:0;font-size:17px}.photo-head p{margin:4px 0 0;color:var(--muted);font-size:9.5px}.head-actions{display:flex;gap:7px}.head-actions button{height:36px;padding:0 12px;border:0;border-radius:8px;font-size:10px;font-weight:800}.save-all{background:var(--blue);color:#fff}.clear-all{background:#fff0f0;color:var(--danger)}
+    .empty{padding:45px 20px;border:1px dashed #cbd5e1;border-radius:15px;background:#fff;color:#8792a2;text-align:center;font-size:11px;line-height:1.7}.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.photo{overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 8px 22px rgba(23,32,51,.05)}.photo img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;background:#eef2f7}.photo-info{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px}.photo-info b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}.photo-info span{flex:none;color:#8a95a5;font-size:8.5px}.photo-actions{display:grid;grid-template-columns:1fr 62px;gap:6px;padding:0 10px 10px}.photo-actions button{height:37px;border:0;border-radius:8px;font-size:9.5px;font-weight:800}.photo-save{background:var(--blue);color:#fff}.photo-delete{background:#fff0f0;color:var(--danger)}
+    .status{min-height:20px;margin:12px 0 0;color:var(--ok);font-size:10px;text-align:center}.notice{margin-top:16px;padding:13px 15px;border-radius:11px;background:#fff8e7;color:#735610;font-size:9.5px;line-height:1.7}
+    @media(max-width:760px){.top{padding:14px 17px;flex-wrap:wrap}.top h1{font-size:20px}.top p{display:none}.topnav{display:grid;grid-template-columns:repeat(3,1fr);width:100%;margin:0}.topnav a{text-align:center;padding:9px 5px}.wrap{width:calc(100% - 22px);margin:13px auto 35px}.hero{display:block;padding:18px}.hero h2{font-size:21px}.privacy{display:inline-block;margin-top:12px}.camera-card{padding:16px 13px}.capture-actions{grid-template-columns:1fr}.capture-btn{min-height:82px}.album-btn{min-height:54px}.guide{gap:5px}.guide div{padding:9px 4px}.photo-head{align-items:start;flex-direction:column}.head-actions{width:100%}.head-actions button{flex:1}.photos{grid-template-columns:repeat(2,1fr);gap:8px}.photo-info{padding:8px}.photo-actions{grid-template-columns:1fr;padding:0 8px 8px}.photo-actions button{height:35px}.photo-delete{order:2}}
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div><div class="brandline">SELECT SHOP 343</div><h1>셀렉상회 촬영 도구</h1></div>
+    <p>옷 사진을 촬영하고 스마트폰 사진첩에 저장합니다.</p>
+    <nav class="topnav">
+      <a href="https://grace-im90.github.io/select-shop-writer/?app=26&new=1" target="_top">판매글 작성</a>
+      <a href="https://grace-im90.github.io/select-shop-writer/products/?app=26" target="_top">상품 목차</a>
+      <a class="on" href="https://grace-im90.github.io/select-shop-writer/camera/?app=26" target="_top">카메라 촬영</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <div><h2>옷 사진 촬영</h2><p>후면 카메라로 촬영한 뒤 필요한 사진만 사진첩에 저장하세요.<br>사진은 셀렉상회 서버로 전송되지 않습니다.</p></div>
+      <span class="privacy">✓ 기기 안에서만 처리</span>
+    </section>
+    <section class="camera-card">
+      <div class="field"><label for="productName">상품명 또는 관리번호 <small style="color:#8994a4;font-weight:500">(선택)</small></label><input id="productName" placeholder="예: 아디다스 트랙 자켓 또는 A-001" autocomplete="off"></div>
+      <div class="capture-actions">
+        <label class="capture-btn" for="cameraInput">📷 옷 사진 촬영<span>스마트폰 후면 카메라가 열립니다</span></label>
+        <input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment">
+        <label class="album-btn" for="albumInput">▣ 사진첩에서 선택<span>여러 장 선택 가능</span></label>
+        <input id="albumInput" class="hidden" type="file" accept="image/*" multiple>
+      </div>
+      <div class="guide"><div><b>① 앞면</b><span>옷 전체가 보이게</span></div><div><b>② 뒷면</b><span>뒷면 전체 촬영</span></div><div><b>③ 디테일</b><span>택·하자·포인트</span></div></div>
+      <div class="photo-head">
+        <div><h3>촬영 사진 <span id="photoCount" style="color:var(--blue)">0장</span></h3><p>촬영 버튼을 다시 누르면 사진을 계속 추가할 수 있습니다.</p></div>
+        <div class="head-actions"><button id="saveAll" class="save-all" type="button" disabled>전체 저장</button><button id="clearAll" class="clear-all" type="button" disabled>전체 삭제</button></div>
+      </div>
+      <div id="empty" class="empty">아직 촬영한 사진이 없습니다.<br>위의 <b>옷 사진 촬영</b> 버튼을 눌러주세요.</div>
+      <div id="photos" class="photos hidden"></div>
+      <p id="status" class="status"></p>
+      <div class="notice">아이폰은 저장 버튼을 누른 뒤 공유창에서 <b>‘이미지 저장’</b>을 선택하세요. 안드로이드는 공유창 또는 다운로드를 통해 갤러리에 저장할 수 있습니다. 페이지를 닫기 전에 필요한 사진을 반드시 저장해 주세요.</div>
+    </section>
+  </main>
+  <script>
+    const photos=[];
+    const $=id=>document.getElementById(id);
+    function setStatus(message,error=false){$("status").textContent=message;$("status").style.color=error?"#d14343":"#12a875";clearTimeout(setStatus.timer);if(message)setStatus.timer=setTimeout(()=>{$("status").textContent=""},3500)}
+    function cleanName(value){return String(value||"").trim().replace(/[\\/:*?"<>|]+/g,"-").replace(/\s+/g,"_").slice(0,60)||"셀렉상회_옷사진"}
+    function extension(file){const fromName=(file.name||"").split(".").pop();if(fromName&&fromName!==file.name&&fromName.length<=5)return fromName.toLowerCase();const map={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/heic":"heic","image/heif":"heif"};return map[file.type]||"jpg"}
+    function outputFile(photo,index){const stamp=new Date(photo.createdAt).toISOString().replace(/[-:]/g,"").replace("T","_").slice(0,15);const name=cleanName($("productName").value)+"_"+String(index+1).padStart(2,"0")+"_"+stamp+"."+extension(photo.file);try{return new File([photo.file],name,{type:photo.file.type||"image/jpeg",lastModified:photo.file.lastModified||Date.now()})}catch(_error){return photo.file}}
+    function formatSize(bytes){if(bytes<1024*1024)return Math.max(1,Math.round(bytes/1024))+"KB";return(bytes/1024/1024).toFixed(1)+"MB"}
+    function addFiles(files){let added=0;Array.from(files||[]).forEach(file=>{if(!file.type||file.type.startsWith("image/")){photos.push({id:Date.now()+"-"+Math.random().toString(36).slice(2),file,url:URL.createObjectURL(file),createdAt:Date.now()});added++}});render();if(added)setStatus(added+"장의 사진을 추가했습니다. 촬영을 계속하거나 저장하세요.")}
+    function render(){const grid=$("photos");grid.innerHTML="";photos.forEach((photo,index)=>{const card=document.createElement("article");card.className="photo";const image=document.createElement("img");image.src=photo.url;image.alt="촬영 사진 "+(index+1);const info=document.createElement("div");info.className="photo-info";const title=document.createElement("b");title.textContent=(index+1)+"번째 사진";const size=document.createElement("span");size.textContent=formatSize(photo.file.size||0);info.append(title,size);const actions=document.createElement("div");actions.className="photo-actions";const save=document.createElement("button");save.type="button";save.className="photo-save";save.textContent="사진첩에 저장";save.onclick=()=>savePhotos([photo]);const remove=document.createElement("button");remove.type="button";remove.className="photo-delete";remove.textContent="삭제";remove.onclick=()=>removePhoto(photo.id);actions.append(save,remove);card.append(image,info,actions);grid.appendChild(card)});$("photoCount").textContent=photos.length+"장";$("empty").classList.toggle("hidden",photos.length>0);grid.classList.toggle("hidden",photos.length===0);$("saveAll").disabled=photos.length===0;$("clearAll").disabled=photos.length===0}
+    function removePhoto(id){const index=photos.findIndex(photo=>photo.id===id);if(index<0)return;URL.revokeObjectURL(photos[index].url);photos.splice(index,1);render();setStatus("사진을 삭제했습니다.")}
+    function clearPhotos(){if(!photos.length)return;if(!confirm("촬영한 사진을 모두 삭제할까요? 아직 사진첩에 저장하지 않은 사진도 사라집니다."))return;photos.forEach(photo=>URL.revokeObjectURL(photo.url));photos.length=0;render();setStatus("촬영 사진을 모두 삭제했습니다.")}
+    function downloadPhoto(photo,index){const link=document.createElement("a");link.href=photo.url;link.download=outputFile(photo,index).name;document.body.appendChild(link);link.click();link.remove()}
+    async function savePhotos(items){if(!items.length)return;const files=items.map((photo,index)=>outputFile(photo,index));const shareData={files,title:"셀렉상회 옷 사진",text:"촬영한 옷 사진을 기기에 저장합니다."};try{if(navigator.share&&(!navigator.canShare||navigator.canShare({files}))){await navigator.share(shareData);setStatus("공유창에서 ‘이미지 저장’을 선택하면 사진첩에 저장됩니다.");return}items.forEach((photo,index)=>setTimeout(()=>downloadPhoto(photo,index),index*250));setStatus("사진 파일을 다운로드했습니다. 갤러리 또는 다운로드 폴더를 확인하세요.")}catch(error){if(error&&error.name==="AbortError"){setStatus("저장을 취소했습니다.",true);return}setStatus("사진을 저장하지 못했습니다. 사진을 길게 눌러 저장해 주세요.",true)}}
+    $("cameraInput").onchange=event=>{addFiles(event.target.files);event.target.value=""};
+    $("albumInput").onchange=event=>{addFiles(event.target.files);event.target.value=""};
+    $("saveAll").onclick=()=>savePhotos([...photos]);
+    $("clearAll").onclick=clearPhotos;
+    window.addEventListener("beforeunload",()=>photos.forEach(photo=>URL.revokeObjectURL(photo.url)));
+    render();
+  </script>
+</body>
+</html>
