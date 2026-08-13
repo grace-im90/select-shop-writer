@@ -148,6 +148,14 @@
   async function saveSaved(product) {
     await readyPromise;
     if (!currentUser) return null;
+    const measurements = { ...normalizeMeasurements(product.measurements) };
+    if (product.id && !measurements.__uploadSites) {
+      try {
+        const { data } = await client.from("saved_products").select("measurements").eq("id", product.id).maybeSingle();
+        const existingUploads = normalizeMeasurements(data?.measurements).__uploadSites;
+        if (existingUploads) measurements.__uploadSites = existingUploads;
+      } catch (_error) {}
+    }
     const payload = {
       brand: product.brand,
       name: product.name,
@@ -156,7 +164,7 @@
       condition: product.condition,
       price: product.price,
       description: product.description,
-      measurements: product.measurements,
+      measurements,
       updated_at: new Date().toISOString()
     };
     let query;
@@ -212,6 +220,189 @@
     return true;
   }
 
+  const uploadSites = [["carrot", "당근"], ["bunjang", "번개장터"], ["fruits", "후르츠"]];
+
+  function uploadSource(product) {
+    const measurements = normalizeMeasurements(product?.measurements);
+    return product?.uploadSites ?? measurements.__uploadSites;
+  }
+
+  function uploadState(product) {
+    let source = uploadSource(product) ?? {};
+    if (typeof source === "string") {
+      try { source = JSON.parse(source); } catch (_error) { source = {}; }
+    }
+    return Object.fromEntries(uploadSites.map(([key, label]) => [
+      key,
+      Array.isArray(source) ? source.includes(key) || source.includes(label) : Boolean(source?.[key] || source?.[label])
+    ]));
+  }
+
+  function hasUploadMetadata(product) {
+    return uploadSource(product) !== undefined && uploadSource(product) !== null;
+  }
+
+  function withUploadState(product, state) {
+    return {
+      ...product,
+      uploadSites: state,
+      measurements: { ...normalizeMeasurements(product?.measurements), __uploadSites: state }
+    };
+  }
+
+  function localSavedProducts() {
+    try { return JSON.parse(localStorage.getItem("select-saved-products") || "[]"); } catch (_error) { return []; }
+  }
+
+  function saveLocalUploadState(id, state) {
+    const products = localSavedProducts();
+    const index = products.findIndex(product => String(product.id) === String(id));
+    if (index >= 0) {
+      products[index] = withUploadState(products[index], state);
+      localStorage.setItem("select-saved-products", JSON.stringify(products));
+    }
+  }
+
+  function preserveLocalUploadState() {
+    if (!window.Storage || Storage.prototype.__selectUploadSitesPatched) return;
+    const originalSetItem = Storage.prototype.setItem;
+    Object.defineProperty(Storage.prototype, "__selectUploadSitesPatched", { value: true });
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "select-saved-products") {
+        try {
+          const next = JSON.parse(value);
+          if (Array.isArray(next)) {
+            const previous = localSavedProducts();
+            const previousById = new Map(previous.map(product => [String(product.id), product]));
+            value = JSON.stringify(next.map(product => {
+              if (hasUploadMetadata(product)) return product;
+              const previousState = uploadState(previousById.get(String(product.id)));
+              return hasUploadMetadata(previousById.get(String(product.id))) ? withUploadState(product, previousState) : product;
+            }));
+          }
+        } catch (_error) {}
+      }
+      return originalSetItem.call(this, key, value);
+    };
+  }
+
+  function setupProductUploadChecks() {
+    if (!/\/products\/?/.test(location.pathname)) return;
+    preserveLocalUploadState();
+    const stateById = new Map();
+
+    function ensureStyles() {
+      if (document.getElementById("uploadSitesStyle")) return;
+      const style = document.createElement("style");
+      style.id = "uploadSitesStyle";
+      style.textContent = ".upload-sites{display:flex;align-items:center;gap:6px;min-width:188px}.upload-check{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:1px solid #d6dee8;border-radius:7px;background:#fff;color:#526075;font-size:9px;font-weight:750}.upload-check.checked{border-color:#b9cdf8;background:#f7faff;color:#356ae6}.upload-check input{width:13px;height:13px;margin:0;accent-color:#356ae6}.upload-check.saving{opacity:.55}";
+      document.head.appendChild(style);
+    }
+
+    function controlFor(id, key, label, checked) {
+      const wrap = document.createElement("label");
+      wrap.className = "upload-check" + (checked ? " checked" : "");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = checked;
+      input.setAttribute("aria-label", `${label} 업로드 완료`);
+      input.onchange = () => saveUploadCheck(id, key, input.checked, input, wrap);
+      const text = document.createElement("span");
+      text.textContent = label;
+      wrap.append(input, text);
+      return wrap;
+    }
+
+    function controls(id) {
+      const state = stateById.get(String(id)) || {};
+      const box = document.createElement("div");
+      box.className = "upload-sites";
+      uploadSites.forEach(([key, label]) => box.appendChild(controlFor(id, key, label, Boolean(state[key]))));
+      return box;
+    }
+
+    function enhanceTable() {
+      ensureStyles();
+      const head = document.getElementById("tableHead");
+      const body = document.getElementById("tableBody");
+      if (!head || !body) return;
+      const headers = [...head.querySelectorAll("th")];
+      const isSavedTable = head.textContent.includes("관리 가격");
+      if (isSavedTable && !head.querySelector("[data-upload-sites-head]")) {
+        const productHeader = headers.find(header => header.textContent.trim() === "상품명");
+        if (productHeader) {
+          const uploadHeader = document.createElement("th");
+          uploadHeader.dataset.uploadSitesHead = "";
+          uploadHeader.textContent = "업로드 확인";
+          productHeader.after(uploadHeader);
+        }
+      }
+      body.querySelectorAll("tr").forEach(row => {
+        const deleteButton = row.querySelector("[data-delete]");
+        if (!deleteButton) return;
+        const existingCell = row.querySelector("[data-upload-sites-cell]");
+        if (existingCell) {
+          existingCell.replaceChildren(controls(deleteButton.dataset.delete));
+          return;
+        }
+        const nameCell = row.querySelector(".product-name");
+        if (!nameCell) return;
+        const cell = document.createElement("td");
+        cell.dataset.uploadSitesCell = "";
+        cell.appendChild(controls(deleteButton.dataset.delete));
+        nameCell.after(cell);
+      });
+    }
+
+    async function refreshUploadStates() {
+      try {
+        await readyPromise;
+        const products = currentUser ? await listSaved() : localSavedProducts();
+        stateById.clear();
+        products.forEach(product => stateById.set(String(product.id), uploadState(product)));
+      } catch (_error) {}
+      enhanceTable();
+    }
+
+    async function saveUploadCheck(id, key, checked, input, label) {
+      const previous = stateById.get(String(id)) || {};
+      const next = { ...previous, [key]: checked };
+      stateById.set(String(id), next);
+      label.classList.toggle("checked", checked);
+      label.classList.add("saving");
+      input.disabled = true;
+      try {
+        await readyPromise;
+        if (currentUser) {
+          const product = await getSaved(id);
+          if (product) await saveSaved(withUploadState(product, next));
+        } else {
+          saveLocalUploadState(id, next);
+        }
+      } catch (error) {
+        stateById.set(String(id), previous);
+        input.checked = !checked;
+        label.classList.toggle("checked", !checked);
+        alert(error.message || "업로드 체크 상태를 저장하지 못했습니다.");
+      } finally {
+        input.disabled = false;
+        label.classList.remove("saving");
+      }
+    }
+
+    const start = () => {
+      refreshUploadStates();
+      const body = document.getElementById("tableBody");
+      const head = document.getElementById("tableHead");
+      if (!body || !head) return setTimeout(start, 100);
+      new MutationObserver(enhanceTable).observe(body, { childList: true });
+      new MutationObserver(enhanceTable).observe(head, { childList: true });
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+    listeners.push(refreshUploadStates);
+  }
+
   window.SelectCloud = {
     client,
     ready: () => readyPromise,
@@ -225,6 +416,7 @@
     syncCatalog,
     setStatus: updateAuthUI
   };
+  setupProductUploadChecks();
   initialize().catch(error => {
     readyResolve(null);
     updateAuthUI(error.message || "클라우드 연결을 확인하지 못했습니다.");
