@@ -287,7 +287,7 @@
   }
 
   function setupProductUploadChecks() {
-    if (!/\/products\/?/.test(location.pathname)) return;
+    if (!/\/products\/?$/.test(location.pathname)) return;
     preserveLocalUploadState();
     const stateById = new Map();
 
@@ -329,8 +329,10 @@
       const headers = [...head.querySelectorAll("th")];
       const isSavedTable = head.textContent.includes("관리 가격");
       if (isSavedTable && !head.querySelector("[data-upload-sites-head]")) {
+        const existingUploadHeader = headers.find(header => header.textContent.trim() === "업로드 확인");
+        if (existingUploadHeader) existingUploadHeader.dataset.uploadSitesHead = "";
         const productHeader = headers.find(header => header.textContent.trim() === "상품명");
-        if (productHeader) {
+        if (!existingUploadHeader && productHeader) {
           const uploadHeader = document.createElement("th");
           uploadHeader.dataset.uploadSitesHead = "";
           uploadHeader.textContent = "업로드 확인";
@@ -345,6 +347,7 @@
           existingCell.replaceChildren(controls(deleteButton.dataset.delete));
           return;
         }
+        if (row.querySelector(".upload-sites")) return;
         const nameCell = row.querySelector(".product-name");
         if (!nameCell) return;
         const cell = document.createElement("td");
