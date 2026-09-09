@@ -32,10 +32,10 @@
 
   .tablewrap .actions > a,
   .tablewrap .actions > button {
-    flex: 0 0 76px;
-    width: 76px;
-    min-width: 76px;
-    height: 44px;
-    padding: 0 6px;
+    flex: 0 0 60px;
+    width: 60px;
+    min-width: 60px;
+    height: 28px;
+    padding: 0 4px;
   }
 }
