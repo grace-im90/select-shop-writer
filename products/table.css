@@ -1,0 +1,36 @@
+/* Keep the original spacing between the detail and management buttons. */
+.tablewrap .detail-cell {
+  width: 1%;
+  padding-right: 5px;
+}
+
+.tablewrap .detail-cell + th,
+.tablewrap .detail-cell + td {
+  padding-left: 0;
+}
+
+@media (max-width: 760px) {
+  .tablewrap table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  /* The cell stays at the right edge until its normal position is visible. */
+  .tablewrap .detail-cell {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+  }
+
+  .tablewrap td.detail-cell {
+    background: #fff;
+  }
+
+  .tablewrap th.detail-cell {
+    background: #f8fafd;
+  }
+
+  .tablewrap .detail-cell button {
+    min-height: 44px;
+  }
+}
