@@ -1,0 +1,80 @@
+.copy-title {
+  display: block;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.copy-title:not(:disabled):hover,
+.copy-title:not(:disabled):active {
+  color: var(--blue, #356ae6);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.copy-title:focus-visible {
+  outline: 2px solid var(--blue, #356ae6);
+  outline-offset: 3px;
+}
+
+.copy-title:disabled {
+  cursor: default;
+}
+
+.product-name .copy-title {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+h2 .copy-title,
+h3 .copy-title {
+  overflow-wrap: anywhere;
+}
+
+.detail-head h2 {
+  min-width: 0;
+}
+
+.title-copy-notice {
+  position: fixed;
+  z-index: 10001;
+  right: 16px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  left: 16px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: #172033;
+  color: #fff;
+  box-shadow: 0 6px 24px rgba(23, 32, 51, .2);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+}
+
+.title-copy-notice[data-error="true"] {
+  background: #982929;
+}
+
+@media (max-width: 760px) {
+  .copy-title {
+    min-height: 44px;
+  }
+
+  .title-copy-notice {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+}
