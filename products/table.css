@@ -30,7 +30,12 @@
     background: #f8fafd;
   }
 
-  .tablewrap .detail-cell button {
-    min-height: 44px;
+  .tablewrap .actions > a,
+  .tablewrap .actions > button {
+    flex: 0 0 76px;
+    width: 76px;
+    min-width: 76px;
+    height: 44px;
+    padding: 0 6px;
   }
 }
