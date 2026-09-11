@@ -9,33 +9,26 @@
   padding-left: 0;
 }
 
-/* Detail view: keep the copy button visible while only the content scrolls. */
+/* Detail view: keep the copy button pinned to the bottom while the card scrolls. */
 .detail-card {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.detail-head {
-  flex: 0 0 auto;
-}
-
-#detailBody {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
+  overflow-y: auto !important;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
 .detail-actions {
-  flex: 0 0 auto;
-  position: relative;
-  z-index: 5;
-  margin-top: 12px;
-  padding-top: 10px;
+  position: sticky !important;
+  bottom: 0;
+  z-index: 20;
+  margin: 16px -22px -22px;
+  padding: 12px 22px calc(12px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
-  background: #fff;
+  background: rgba(255,255,255,.98);
+  box-shadow: 0 -8px 18px rgba(23,32,51,.08);
+}
+
+.detail-actions button {
+  width: 100%;
 }
 
 @media (max-width: 760px) {
@@ -69,10 +62,11 @@
   }
 
   .detail-card {
-    max-height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px) !important;
   }
 
   .detail-actions {
-    padding-bottom: max(0px, env(safe-area-inset-bottom));
+    margin: 14px -17px -17px;
+    padding: 10px 17px calc(10px + env(safe-area-inset-bottom));
   }
 }
