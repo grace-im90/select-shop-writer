@@ -9,6 +9,35 @@
   padding-left: 0;
 }
 
+/* Detail view: keep the copy button visible while only the content scrolls. */
+.detail-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-head {
+  flex: 0 0 auto;
+}
+
+#detailBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.detail-actions {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 5;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+
 @media (max-width: 760px) {
   .tablewrap table {
     border-collapse: separate;
@@ -37,5 +66,13 @@
     min-width: 45px;
     height: 28px;
     padding: 0 2px;
+  }
+
+  .detail-card {
+    max-height: calc(100dvh - 24px);
+  }
+
+  .detail-actions {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
   }
 }
