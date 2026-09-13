@@ -38,6 +38,7 @@
       condition: row.condition || "B+ 좋은 상태",
       price: Number(row.price || 0),
       description: row.description || "",
+      productImage: measurements.__productImage ?? null,
       measurements,
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -149,11 +150,17 @@
     await readyPromise;
     if (!currentUser) return null;
     const measurements = { ...normalizeMeasurements(product.measurements) };
-    if (product.id && !measurements.__uploadSites) {
+    const has = key => Object.prototype.hasOwnProperty.call(measurements, key);
+    if (product.id && (!has("__uploadSites") || !has("__productImage"))) {
       try {
         const { data } = await client.from("saved_products").select("measurements").eq("id", product.id).maybeSingle();
-        const existingUploads = normalizeMeasurements(data?.measurements).__uploadSites;
-        if (existingUploads) measurements.__uploadSites = existingUploads;
+        const existingMeasurements = normalizeMeasurements(data?.measurements);
+        if (!has("__uploadSites") && Object.prototype.hasOwnProperty.call(existingMeasurements, "__uploadSites")) {
+          measurements.__uploadSites = existingMeasurements.__uploadSites;
+        }
+        if (!has("__productImage") && Object.prototype.hasOwnProperty.call(existingMeasurements, "__productImage")) {
+          measurements.__productImage = existingMeasurements.__productImage;
+        }
       } catch (_error) {}
     }
     const payload = {
@@ -250,6 +257,23 @@
     };
   }
 
+  function productImageSource(product) {
+    const measurements = normalizeMeasurements(product?.measurements);
+    return product?.productImage ?? measurements.__productImage;
+  }
+
+  function hasProductImageMetadata(product) {
+    return productImageSource(product) !== undefined;
+  }
+
+  function withProductImage(product, image) {
+    return {
+      ...product,
+      productImage: image,
+      measurements: { ...normalizeMeasurements(product?.measurements, "__productImage": image }
+    };
+  }
+
   function localSavedProducts() {
     try { return JSON.parse(localStorage.getItem("select-saved-products") || "[]"); } catch (_error) { return []; }
   }
@@ -275,9 +299,15 @@
             const previous = localSavedProducts();
             const previousById = new Map(previous.map(product => [String(product.id), product]));
             value = JSON.stringify(next.map(product => {
-              if (hasUploadMetadata(product)) return product;
-              const previousState = uploadState(previousById.get(String(product.id)));
-              return hasUploadMetadata(previousById.get(String(product.id))) ? withUploadState(product, previousState) : product;
+              const previousProduct = previousById.get(String(product.id));
+              let merged = product;
+              if (!hasUploadMetadata(merged) && hasUploadMetadata(previousProduct)) {
+                merged = withUploadState(merged, uploadState(previousProduct));
+              }
+              if (!hasProductImageMetadata(merged) && hasProductImageMetadata(previousProduct)) {
+                merged = withProductImage(merged, productImageSource(previousProduct));
+              }
+              return merged;
             }));
           }
         } catch (_error) {}
@@ -292,7 +322,7 @@
     const stateById = new Map();
 
     function ensureStyles() {
-      if (document.getElementById("uploadSitesStyle")) return;
+      if (document.getElementById("statusSitesStyle")) return;
       const style = document.createElement("style");
       style.id = "uploadSitesStyle";
       style.textContent = ".upload-sites{display:flex;align-items:center;gap:6px;min-width:188px}.upload-check{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:1px solid #d6dee8;border-radius:7px;background:#fff;color:#526075;font-size:9px;font-weight:750}.upload-check.checked{border-color:#b9cdf8;background:#f7faff;color:#356ae6}.upload-check input{width:13px;height:13px;margin:0;accent-color:#356ae6}.upload-check.saving{opacity:.55}";
@@ -301,11 +331,11 @@
 
     function controlFor(id, key, label, checked) {
       const wrap = document.createElement("label");
-      wrap.className = "upload-check" + (checked ? " checked" : "");
+      wrap.className = "upload-check " + (checked ? " checked" : "");
       const input = document.createElement("input");
       input.type = "checkbox";
       input.checked = checked;
-      input.setAttribute("aria-label", `${label} 업로드 완료`);
+      input.setAttribute("aria-label", `${label} 업로드 홄료`);
       input.onchange = () => saveUploadCheck(id, key, input.checked, input, wrap);
       const text = document.createElement("span");
       text.textContent = label;
@@ -331,7 +361,7 @@
       if (isSavedTable && !head.querySelector("[data-upload-sites-head]")) {
         const existingUploadHeader = headers.find(header => header.textContent.trim() === "업로드 확인");
         if (existingUploadHeader) existingUploadHeader.dataset.uploadSitesHead = "";
-        const productHeader = headers.find(header => header.textContent.trim() === "상품명");
+        const productHeader = headers.find(header => header.textContent.trim() === "상품목");
         if (!existingUploadHeader && productHeader) {
           const uploadHeader = document.createElement("th");
           uploadHeader.dataset.uploadSitesHead = "";
@@ -386,7 +416,7 @@
         stateById.set(String(id), previous);
         input.checked = !checked;
         label.classList.toggle("checked", !checked);
-        alert(error.message || "업로드 체크 상태를 저장하지 못했습니다.");
+        alert(error.message || "업로드 체크 상태를 저장해지 못했습니다.");
       } finally {
         input.disabled = false;
         label.classList.remove("saving");
@@ -406,6 +436,15 @@
     listeners.push(refreshUploadStates);
   }
 
+  function loadProductManagement() {
+    if (!/\/products\/?$/.test(location.pathname)) return;
+    if (document.querySelector("script[data-product-management]")) return;
+    const script = document.createElement("script");
+    script.src = "management.js?v=1";
+    script.dataset.productManagement = "";
+    document.head.appendChild(script);
+  }
+
   window.SelectCloud = {
     client,
     ready: () => readyPromise,
@@ -419,9 +458,11 @@
     syncCatalog,
     setStatus: updateAuthUI
   };
+  preserveLocalUploadState();
+  loadProductManagement();
   setupProductUploadChecks();
   initialize().catch(error => {
     readyResolve(null);
-    updateAuthUI(error.message || "클라우드 연결을 확인하지 못했습니다.");
+    updateAuthUI(error.message || "클라우드 연결으을 확인해지 못했습니다.");
   });
 })();
