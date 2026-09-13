@@ -292,6 +292,126 @@
     return new Promise((resolve, reject) => {
       const image = new Image();
       image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("ì´ë®¾ã²ž®–ðƒ®Ú#®~³²b“²ž ƒ®ªï¶Z#²*×®.#®.¸ˆ¤¤ì(€€€€€¥µ…”¹ÍÉŒ€ôÍÉŒì(€€€ô¤ì(€ô((€…Íå¹Œ™Õ¹Ñ¥½¸¥µ…•5•Ñ…É½µ¥±”¡™¥±”¤ì(€€€¥˜€ …™¥±”¹ÑåÁ”ñð€…™¥±”¹ÑåÁ”¹ÍÑ…ÉÑÍ]¥Ñ  ‰¥µ…”¼ˆ¤¤Ñ¡É½Ü¹•ÜÉÉ½È ‹²vÓ®¾ã²ž ƒ¶23²vó®ž0ƒ²ÚSªÂ¶V€ƒ²"`ƒ²z#²*×®.#®.¸ˆ¤ì(€€€½¹ÍÐÍ½ÕÉ”€ô…Ý…¥Ð™¥±•Q½…Ñ…UI0¡™¥±”¤ì(€€€½¹ÍÐ¥µ…”€ô…Ý…¥Ð±½…‘%µ…”¡Í½ÕÉ”¤ì(€€€½¹ÍÐµ…á]¥‘Ñ €ô€ÜÈÀì(€€€½¹ÍÐµ…á!•¥¡Ð€ô€äÀÀì(€€€½¹ÍÐÍ…±”€ô5…Ñ ¹µ¥¸ Ä°µ…á]¥‘Ñ €¼¥µ…”¹¹…ÑÕÉ…±]¥‘Ñ °µ…á!•¥¡Ð€¼¥µ…”¹¹…ÑÕÉ…±!•¥¡Ð¤ì(€€€½¹ÍÐÝ¥‘Ñ €ô5…Ñ ¹µ…à Ä°5…Ñ ¹É½Õ¹¡¥µ…”¹¹…ÑÕÉ…±]¥‘Ñ €¨Í…±”¤¤ì(€€€½¹ÍÐ¡•¥¡Ð€ô5…Ñ ¹µ…à Ä°5…Ñ ¹É½Õ¹¡¥µ…”¹¹…ÑÕÉ…±!•¥¡Ð€¨Í…±”¤¤ì(€€€½¹ÍÐ…¹Ù…Ì€ô‘½Õµ•¹Ð¹É•…Ñ•±•µ•¹Ð ‰…¹Ù…Ìˆ¤ì(€€€…¹Ù…Ì¹Ý¥‘Ñ €ôÝ¥‘Ñ ì(€€€…¹Ù…Ì¹¡•¥¡Ð€ô¡•¥¡Ðì(€€€½¹ÍÐ½¹Ñ•áÐ€ô…¹Ù…Ì¹•Ñ½¹Ñ•áÐ ˆÉˆ¤ì(€€€½¹Ñ•áÐ¹™¥±±MÑå±”€ô€ˆ™™˜ˆì(€€€½¹Ñ•áÐ¹™¥±±I•Ð À°€À°Ý¥‘Ñ °¡•¥¡Ð¤ì(€€€½¹Ñ•áÐ¹‘É…Ý%µ…”¡¥µ…”°€À°€À°Ý¥‘Ñ °¡•¥¡Ð¤ì(€€€É•ÑÕÉ¸ì(€€€€€ÍÉŒè…¹Ù…Ì¹Ñ½…Ñ…UI0 ‰¥µ…”½©Á•œˆ°€À¸à¤°(€€€€€¹…µ”è™¥±”¹¹…µ”ñð€‰ÁÉ½‘ÕÐµÁ¡½Ñ¼¹©Áœˆ°(€€€€€ÑåÁ”è€‰¥µ…”½©Á•œˆ°(€€€€€½É¥¥¹…±QåÁ”è™¥±”¹ÑåÁ”°(€€€€€ÕÁ‘…Ñ•‘Ðè¹•Ü…Ñ” ¤¹Ñ½%M=MÑÉ¥¹œ ¤(€€€ôì(€ô((€™Õ¹Ñ¥½¸Ý¥Ñ¡AÉ½‘ÕÑ%µ…”¡ÁÉ½‘ÕÐ°¥µ…”¤ì(€€€É•ÑÕÉ¸ì(€€€€€€¸¸¹ÁÉ½‘ÕÐ°(€€€€€ÁÉ½‘ÕÑ%µ…”è¥µ…”°(€€€€€µ•…ÍÕÉ•µ•¹ÑÌèì€¸¸¹Í…™•5•…ÍÕÉ•µ•¹ÑÌ¡ÁÉ½‘ÕÐ¤°}}ÁÉ½‘ÕÑ%µ…”è¥µ…”ô°(€€€€€ÕÁ‘…Ñ•‘Ðè¹•Ü…Ñ” ¤¹Ñ½%M=MÑÉ¥¹œ ¤(€€€ôì(€ô((€…Íå¹Œ™Õ¹Ñ¥½¸Í…Ù•AÉ½‘ÕÑ%µ…”¡¥¹‘•à°¥µ…”¤ì(€€€½¹ÍÐÁÉ•Ù¥½ÕÌ€ôÍ…Ù•‘m¥¹‘•átì(€€€¥˜€ …ÁÉ•Ù¥½ÕÌ¤É•ÑÕÉ¸ì(€€€½¹ÍÐÕÁ‘…Ñ•€ôÝ¥Ñ¡AÉ½‘ÕÑ%µ…”¡ÁÉ•Ù¥½ÕÌ°¥µ…”¤ì(€€€Í…Ù•‘m¥¹‘•át€ôÕÁ‘…Ñ•ì(€€€ÑÉäì(€€€€€¥˜€¡Ý¥¹‘½Ü¹M•±•Ñ±½Õ€˜˜M•±•Ñ±½Õ¹ÕÍ•È¤…Ý…¥ÐM•±•Ñ±½Õ¹Í…Ù•M…Ù•¡ÕÁ‘…Ñ•¤ì(€€€€€•±Í”¥˜€¡ÑåÁ•½˜Í…Ù•1½…±M…Ù•‘AÉ½‘ÕÐ€ôôô€‰™Õ¹Ñ¥½¸ˆ¤Í…Ù•1½…±M…Ù•‘AÉ½‘ÕÐ¡ÕÁ‘…Ñ•¤ì(€€€€€…Ý…¥Ð±½…‘M…Ù• ¤ì(€€€ô…Ñ €¡•ÉÉ½È¤ì(€€€€€Í…Ù•‘m¥¹‘•át€ôÁÉ•Ù¥½ÕÌì(€€€€€É•¹‘•È ¤ì(€€€€€Ñ¡É½Ü•ÉÉ½Èì(€€€ô(€ô((€…Íå¹Œ™Õ¹Ñ¥½¸ÕÁ‘…Ñ•AÉ½‘ÕÑ%µ…”¡¥¹‘•à°™¥±”¤ì(€€€½¹ÍÐ‰ÕÑÑ½¹Ì€ô‘½Õµ•¹Ð¹ÅÕ•ÉåM•±•Ñ½É±°¡m‘…Ñ„µ¥µ…”µ¥¹‘•àôˆ‘í¥¹‘•áô‰u€¤ì(€€€‰ÕÑÑ½¹Ì¹™½É… ¡‰ÕÑÑ½¸€ôøì(€€€€€‰ÕÑÑ½¸¹‘¥Í…‰±•€ôÑÉÕ”ì(€€€€€‰ÕÑÑ½¸¹‘…Ñ…Í•Ð¹ÁÉ•Ù¥½ÕÍQ•áÐ€ô‰ÕÑÑ½¸¹Ñ•áÑ½¹Ñ•¹Ðì(€€€€€¥˜€¡‰ÕÑÑ½¸¹±…ÍÍ1¥ÍÐ¹½¹Ñ…¥¹Ì ‰Í¡½Ðµ…‘ˆ¤¤‰ÕÑÑ½¸¹Ñ•áÑ½¹Ñ•¹Ð€ô€‹²‚²z”ƒ²’D¸¸¸ˆì(€€€ô¤ì(€€€ÑÉäì(€€€€€…Ý…¥ÐÍ…Ù•AÉ½‘ÕÑ%µ…”¡¥¹‘•à°…Ý…¥Ð¥µ…•5•Ñ…É½µ¥±”¡™¥±”¤¤ì(€€€ô…Ñ €¡•ÉÉ½È¤ì(€€€€€…±•ÉÐ¡•ÉÉ½È¹µ•ÍÍ…”ñð€‹®2¶Fs²îß²vƒ²‚²z—¶Vc²ž ƒ®ªï¶Z#²*×®.#®.¸ˆ¤ì(€€€ô™¥¹…±±äì(€€€€€‰ÕÑÑ½¹Ì¹™½É… ¡‰ÕÑÑ½¸€ôøì(€€€€€€€‰ÕÑÑ½¸¹‘¥Í…‰±•€ô™…±Í”ì(€€€€€€€¥˜€¡‰ÕÑÑ½¸¹‘…Ñ…Í•Ð¹ÁÉ•Ù¥½ÕÍQ•áÐ¤‰ÕÑÑ½¸¹Ñ•áÑ½¹Ñ•¹Ð€ô‰ÕÑÑ½¸¹‘…Ñ…Í•Ð¹ÁÉ•Ù¥½ÕÍQ•áÐì(€€€€€ô¤ì(€€€ô(€ô((€…Íå¹Œ™Õ¹Ñ¥½¸É•µ½Ù•AÉ½‘ÕÑ%µ…”¡¥¹‘•à¤ì(€€€¥˜€ …½¹™¥É´ ‹®2¶Fs²îß²vƒ²
-·²‚s¶Vƒªæ3²jPüˆ¤¤É•ÑÕÉ¸ì(€€€ÑÉäì(€€€€€…Ý…¥ÐÍ…Ù•AÉ½‘ÕÑ%µ…”¡¥¹‘•à°¹Õ±°¤ì(€€€ô…Ñ €¡•ÉÉ½È¤ì(€€€€€…±•ÉÐ¡•ÉÉ½È¹µ•ÍÍ…”ñð€‹®2¶Fs²îß²vƒ²
-·²‚s¶Vc²ž ƒ®ªï¶Z#²*×®.#®.¸ˆ¤ì(€€€ô(€ô((€™Õ¹Ñ¥½¸Á…Ñ¡AÉ½‘ÕÑA…” ¤ì(€€€¥˜€¡ÑåÁ•½˜™¥±Ñ•É•€„ôô€‰™Õ¹Ñ¥½¸ˆñðÑåÁ•½˜É•¹‘•È€„ôô€‰™Õ¹Ñ¥½¸ˆ¤É•ÑÕÉ¸™…±Í”ì(€€€½¹ÍÐ‰…Í•¥±Ñ•É•€ô™¥±Ñ•É•ì(€€€½¹ÍÐ‰…Í•I•¹‘•È€ôÉ•¹‘•Èì(€€€™¥±Ñ•É•€ô™Õ¹Ñ¥½¸€ ¤ì(€€€€€½¹ÍÐÉ½ÝÌ€ô‰…Í•¥±Ñ•É• ¤ì(€€€€€¥˜€¡ÑåÁ•½˜µ½‘”€ôôô€‰Õ¹‘•™¥¹•ˆñðµ½‘”€„ôô€‰Í…Ù•ˆ¤É•ÑÕÉ¸É½ÝÌì(€€€€€É•ÑÕÉ¸É½ÝÌ¹™¥±Ñ•È¡ÁÉ½‘ÕÐ€ôøµ…Ñ¡•Í¥±Ñ•È¡ÁÉ½‘ÕÐ¤¤ì(€€€ôì(€€€É•¹‘•È€ô™Õ¹Ñ¥½¸€ ¤ì(€€€€€‰…Í•I•¹‘•È ¤ì(€€€€€•¹¡…¹” ¤ì(€€€ôì(€€€¥˜€¡ÑåÁ•½˜Ñ½±•UÁ±½…‘M¥Ñ”€ôôô€‰™Õ¹Ñ¥½¸ˆ¤ì(€€€€€½¹ÍÐ‰…Í•Q½±•UÁ±½…‘M¥Ñ”€ôÑ½±•UÁ±½…‘M¥Ñ”ì(€€€€€Ñ½±•UÁ±½…‘M¥Ñ”€ô…Íå¹Œ™Õ¹Ñ¥½¸€ ¤ì(€€€€€€€½¹ÍÐÉ•ÍÕ±Ð€ô…Ý…¥Ð‰…Í•Q½±•UÁ±½…‘M¥Ñ”¹…ÁÁ±ä¡Ñ¡¥Ì°…ÉÕµ•¹ÑÌ¤ì(€€€€€€€¥˜€¡ÑåÁ•½˜µ½‘”€„ôô€‰Õ¹‘•™¥¹•ˆ€˜˜µ½‘”€ôôô€‰Í…Ù•ˆ¤ì(€€€€€€€€€¥˜€¡…Ñ¥Ù•¥±Ñ•È€ôôô€‰…±°ˆ¤•¹¡…¹” ¤ì(€€€€€€€€€•±Í”ì(€€€€€€€€€€€¥˜€¡ÑåÁ•½˜Á…”€„ôô€‰Õ¹‘•™¥¹•ˆ¤Á…”€ô€Äì(€€€€€€€€€€€É•¹‘•È ¤ì(€€€€€€€€€ô(€€€€€€€ô(€€€€€€€É•ÑÕÉ¸É•ÍÕ±Ðì(€€€€€ôì(€€€ô(€€€É•¹‘•È ¤ì(€€€É•ÑÕÉ¸ÑÉÕ”ì(€ô((€½¹ÍÐÍÑ…ÉÐ€ô€ ¤€ôøì(€€€•¹ÍÕÉ•MÑå±•Ì ¤ì(€€€•¹ÍÕÉ•%µ…•%¹ÁÕÐ ¤ì(€€€¥˜€ …Á…Ñ¡AÉ½‘ÕÑA…” ¤¤Í•ÑQ¥µ•½ÕÐ¡ÍÑ…ÉÐ°€ÄÀÀ¤ì(€ôì((€¥˜€¡‘½Õµ•¹Ð¹É•…‘åMÑ…Ñ”€ôôô€‰±½…‘¥¹œˆ¤‘½Õµ•¹Ð¹…‘‘Ù•¹Ñ1¥ÍÑ•¹•È ‰=5½¹Ñ•¹Ñ1½…‘•ˆ°ÍÑ…ÉÐ¤ì(€•±Í”ÍÑ…ÉÐ ¤ì)ô¤ ¤ì(
+      image.onerror = () => reject(new Error("ì´ë¯¸ì§€ë¥¼ ë¶ˆëŸ¬ì˜¤ì§€ ëª»í–ˆìŠµë‹ˆë‹¤."));
+      image.src = src;
+    });
+  }
+
+  async function imageMetaFromFile(file) {
+    if (!file.type || !file.type.startsWith("image/")) throw new Error("ì´ë¯¸ì§€ íŒŒì¼ë§Œ ì¶”ê°€í•  ìˆ˜ ìžˆìŠµë‹ˆë‹¤.");
+    const source = await fileToDataURL(file);
+    const image = await loadImage(source);
+    const maxWidth = 720;
+    const maxHeight = 900;
+    const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+    return {
+      src: canvas.toDataURL("image/jpeg", 0.8),
+      name: file.name || "product-photo.jpg",
+      type: "image/jpeg",
+      originalType: file.type,
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function withProductImage(product, image) {
+    return {
+      ...product,
+      productImage: image,
+      measurements: { ...safeMeasurements(product), __productImage: image },
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  async function saveProductImage(index, image) {
+    const previous = saved[index];
+    if (!previous) return;
+    const updated = withProductImage(previous, image);
+    saved[index] = updated;
+    try {
+      if (window.SelectCloud && SelectCloud.user) await SelectCloud.saveSaved(updated);
+      else if (typeof saveLocalSavedProduct === "function") saveLocalSavedProduct(updated);
+      await loadSaved();
+    } catch (error) {
+      saved[index] = previous;
+      render();
+      throw error;
+    }
+  }
+
+  async function updateProductImage(index, file) {
+    const buttons = document.querySelectorAll(`[data-image-index="${index}"]`);
+    buttons.forEach(button => {
+      button.disabled = true;
+      button.dataset.previousText = button.textContent;
+      if (button.classList.contains("shot-add")) button.textContent = "ì €ìž¥ ì¤‘...";
+    });
+    try {
+      await saveProductImage(index, await imageMetaFromFile(file));
+    } catch (error) {
+      alert(error.message || "ëŒ€í‘œì»·ì„ ì €ìž¥í•˜ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.");
+    } finally {
+      buttons.forEach(button => {
+        button.disabled = false;
+        if (button.dataset.previousText) button.textContent = button.dataset.previousText;
+      });
+    }
+  }
+
+  async function removeProductImage(index) {
+    if (!confirm("ëŒ€í‘œì»·ì„ ì‚­ì œí• ê¹Œìš”?")) return;
+    try {
+      await saveProductImage(index, null);
+    } catch (error) {
+      alert(error.message || "ëŒ€í‘œì»·ì„ ì‚­ì œí•˜ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.");
+    }
+  }
+
+  function patchProductPage() {
+    if (typeof filtered !== "function" || typeof render !== "function") return false;
+    const baseFiltered = filtered;
+    const baseRender = render;
+    filtered = function () {
+      const rows = baseFiltered();
+      if (typeof mode === "undefined" || mode !== "saved") return rows;
+      return rows.filter(product => matchesFilter(product));
+    };
+    render = function () {
+      baseRender();
+      enhance();
+    };
+    if (typeof toggleUploadSite === "function") {
+      const baseToggleUploadSite = toggleUploadSite;
+      toggleUploadSite = async function () {
+        const result = await baseToggleUploadSite.apply(this, arguments);
+        if (typeof mode !== "undefined" && mode === "saved") {
+          if (activeFilter === "all") enhance();
+          else {
+            if (typeof page !== "undefined") page = 1;
+            render();
+          }
+        }
+        return result;
+      };
+    }
+    render();
+    return true;
+  }
+
+  const start = () => {
+    ensureStyles();
+    ensureImageInput();
+    if (!patchProductPage()) setTimeout(start, 100);
+  };
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
