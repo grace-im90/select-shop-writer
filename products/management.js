@@ -297,12 +297,13 @@
     });
   }
 
-  async function imageMetaFromFile(file) {
-    if (!file.type || !file.type.startsWith("image/")) throw new Error("이미지 파일만 추가할 수 있습니다.");
-    const source = await fileToDataURL(file);
-    const image = await loadImage(source);
-    const maxWidth = 720;
-    const maxHeight = 900;
+  function imageDataBytes(dataUrl) {
+    const comma = dataUrl.indexOf(",");
+    if (comma < 0) return dataUrl.length;
+    return Math.ceil((dataUrl.length - comma - 1) * 3 / 4);
+  }
+
+  function resizeToCanvas(image, maxWidth, maxHeight) {
     const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
     const width = Math.max(1, Math.round(image.naturalWidth * scale));
     const height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -313,12 +314,44 @@
     context.fillStyle = "#fff";
     context.fillRect(0, 0, width, height);
     context.drawImage(image, 0, 0, width, height);
+    return canvas;
+  }
+
+  function compressedImageSrc(image) {
+    const maxBytes = 45 * 1024;
+    const profiles = [
+      { maxWidth: 360, maxHeight: 480 },
+      { maxWidth: 300, maxHeight: 400 },
+      { maxWidth: 240, maxHeight: 320 }
+    ];
+    const formats = [
+      ["image/webp", [0.58, 0.48, 0.38]],
+      ["image/jpeg", [0.62, 0.52, 0.42]]
+    ];
+    let smallest = "";
+    let bestUnderLimit = "";
+    profiles.forEach(profile => {
+      const canvas = resizeToCanvas(image, profile.maxWidth, profile.maxHeight);
+      formats.forEach(([type, qualities]) => {
+        qualities.forEach(quality => {
+          const src = canvas.toDataURL(type, quality);
+          if (!src.startsWith(`data:${type}`)) return;
+          if (!smallest || imageDataBytes(src) < imageDataBytes(smallest)) smallest = src;
+          if (imageDataBytes(src) <= maxBytes && (!bestUnderLimit || imageDataBytes(src) < imageDataBytes(bestUnderLimit))) {
+            bestUnderLimit = src;
+          }
+        });
+      });
+    });
+    return bestUnderLimit || smallest;
+  }
+
+  async function imageMetaFromFile(file) {
+    if (!file.type || !file.type.startsWith("image/")) throw new Error("이미지 파일만 추가할 수 있습니다.");
+    const source = await fileToDataURL(file);
+    const image = await loadImage(source);
     return {
-      src: canvas.toDataURL("image/jpeg", 0.8),
-      name: file.name || "product-photo.jpg",
-      type: "image/jpeg",
-      originalType: file.type,
-      updatedAt: new Date().toISOString()
+      src: compressedImageSrc(image)
     };
   }
 
