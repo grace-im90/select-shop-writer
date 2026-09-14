@@ -21,14 +21,17 @@
         var measurements = { ...normalizeMeasurements(product.measurements) };
         var needsUpload = !hasOwn(measurements, "__uploadSites");
         var needsImage = !hasOwn(measurements, "__productImage");
-        if (needsUpload || needsImage) {
+        var needsCode = !hasOwn(measurements, "__productCode");
+        if (needsUpload || needsImage || needsCode) {
           try {
             var existing = await originalGet.call(cloud, product.id);
             var existingMeasurements = normalizeMeasurements(existing && existing.measurements);
             if (needsUpload && hasOwn(existingMeasurements, "__uploadSites")) measurements.__uploadSites = existingMeasurements.__uploadSites;
             if (needsImage && hasOwn(existingMeasurements, "__productImage")) measurements.__productImage = existingMeasurements.__productImage;
+            if (needsCode && hasOwn(existingMeasurements, "__productCode")) measurements.__productCode = existingMeasurements.__productCode;
             product = { ...product, measurements };
             if (hasOwn(measurements, "__productImage")) product.productImage = measurements.__productImage;
+            if (hasOwn(measurements, "__productCode")) product.code = measurements.__productCode;
           } catch (_error) {}
         }
       }

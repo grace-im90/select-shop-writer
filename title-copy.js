@@ -56,7 +56,7 @@
   document.addEventListener("click", async function (event) {
     const button = event.target.closest?.("button[data-copy-title]");
     if (!button || button.disabled) return;
-    const text = button.textContent.trim();
+    const text = (button.dataset.copyTitleValue || button.textContent).trim();
     if (!text) return;
     const request = ++latestRequest;
     const copied = await writeTitle(text);

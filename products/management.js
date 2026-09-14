@@ -18,6 +18,8 @@
   if (!filters.some(([key]) => key === activeFilter)) activeFilter = "all";
   let pendingImageIndex = null;
   let enhancing = false;
+  let savingCodes = false;
+  const pendingCodeSaves = new Map();
 
   function safeEsc(value) {
     if (typeof esc === "function") return esc(value);
@@ -70,6 +72,21 @@
     return Boolean(productImage(product));
   }
 
+  function productCode(product) {
+    return String(product?.code ?? safeMeasurements(product).__productCode ?? "").trim();
+  }
+
+  function withProductCode(product, code) {
+    const measurements = { ...safeMeasurements(product), __productCode: code };
+    return { ...product, code, measurements };
+  }
+
+  function allocateProductCode(used) {
+    let number = 1;
+    while (used.has("S" + String(number).padStart(3, "0"))) number++;
+    return "S" + String(number).padStart(3, "0");
+  }
+
   function activeSavedProducts() {
     try {
       return saved.filter(product => !isSold(product));
@@ -107,11 +124,13 @@
       ".status-filters button{height:31px;padding:0 10px;border:1px solid #d6dee8;border-radius:8px;background:#fff;color:#526075;font-size:9px;font-weight:800}",
       ".status-filters button.on{border-color:#356ae6;background:#eaf1ff;color:#356ae6}",
       ".product-shot-cell{min-width:104px}",
+      ".product-code-cell{min-width:54px;color:#356ae6;font-weight:850}",
       ".product-shot{display:flex;align-items:center;gap:7px}",
       ".shot-thumb{width:44px;height:56px;overflow:hidden;border:1px solid #d6dee8;border-radius:8px;background:#f4f7fb;padding:0}",
       ".shot-thumb img{display:block;width:100%;height:100%;object-fit:cover}",
       ".shot-add{height:31px;padding:0 10px;border:1px dashed #b7c4d8;border-radius:8px;background:#f8faff;color:#526075;font-size:9px;font-weight:800}",
-      ".shot-tools{display:flex;flex-direction:column;gap:4px}",
+      ".shot-tools{display:none;flex-direction:column;gap:4px}",
+      ".product-shot.tools-open .shot-tools{display:flex}",
       ".shot-tools button{height:24px;padding:0 7px;border:0;border-radius:6px;background:#edf3ff;color:#356ae6;font-size:8.5px;font-weight:800}",
       ".shot-tools button.delete{background:#fff0f0;color:#c33}",
       ".product-status{display:flex;flex-direction:column;gap:4px;min-width:82px}",
@@ -120,7 +139,7 @@
       ".status-pill.partial{background:#eef6ff;color:#2563eb}",
       ".status-pill.done{background:#ecfdf5;color:#05845f}",
       ".product-status small{color:#8a95a5;font-size:8.5px}",
-      "@media(max-width:760px){.status-filters{padding:0 10px 11px}.product-shot-cell{min-width:84px}.shot-thumb{width:38px;height:48px}.shot-tools button{width:42px;padding:0}.status-pill{height:23px;padding:0 7px}}"
+      "@media(max-width:760px){.status-filters{padding:0 10px 11px}.product-shot-cell{min-width:84px}.product-code-cell{min-width:48px}.shot-thumb{width:38px;height:48px}.shot-tools button{width:42px;padding:0}.status-pill{height:23px;padding:0 7px}}"
     ].join("");
     document.head.appendChild(style);
   }
@@ -184,7 +203,7 @@
     }
     return [
       '<div class="product-shot">',
-      `<button type="button" class="shot-thumb" data-image-action="choose" data-image-index="${index}" title="대표컷 교체"><img src="${safeEsc(image.src)}" alt=""></button>`,
+      `<button type="button" class="shot-thumb" data-image-action="toggle" data-image-index="${index}" title="사진 관리" aria-expanded="false"><img src="${safeEsc(image.src)}" alt="대표 제품 사진"></button>`,
       '<div class="shot-tools">',
       `<button type="button" data-image-action="choose" data-image-index="${index}">교체</button>`,
       `<button type="button" class="delete" data-image-action="remove" data-image-index="${index}">삭제</button>`,
@@ -201,7 +220,16 @@
       if (!button) return;
       const index = Number(button.dataset.imageIndex);
       if (!Number.isFinite(index)) return;
-      if (button.dataset.imageAction === "remove") {
+      if (button.dataset.imageAction === "toggle") {
+        const shot = button.closest(".product-shot");
+        const opening = !shot.classList.contains("tools-open");
+        body.querySelectorAll(".product-shot.tools-open").forEach(item => {
+          item.classList.remove("tools-open");
+          item.querySelector(".shot-thumb")?.setAttribute("aria-expanded", "false");
+        });
+        shot.classList.toggle("tools-open", opening);
+        button.setAttribute("aria-expanded", String(opening));
+      } else if (button.dataset.imageAction === "remove") {
         removeProductImage(index);
       } else {
         pendingImageIndex = index;
@@ -223,6 +251,15 @@
         shotHead.dataset.productShotHead = "";
         shotHead.textContent = "제품컷";
         headers[0].after(shotHead);
+      }
+      if (!row.querySelector("[data-product-code-head]")) {
+        const shotHead = row.querySelector("[data-product-shot-head]");
+        if (shotHead) {
+          const codeHead = document.createElement("th");
+          codeHead.dataset.productCodeHead = "";
+          codeHead.textContent = "품번";
+          shotHead.after(codeHead);
+        }
       }
       if (!row.querySelector("[data-upload-status-head]")) {
         const nameHead = [...row.children].find(cell => cell.textContent.trim() === "상품명");
@@ -248,6 +285,17 @@
         tableRow.children[0]?.after(shotCell);
       }
       shotCell.innerHTML = shotMarkup(product, index);
+      let codeCell = tableRow.querySelector("[data-product-code-cell]");
+      if (!codeCell) {
+        codeCell = document.createElement("td");
+        codeCell.className = "product-code-cell";
+        codeCell.dataset.productCodeCell = "";
+        shotCell.after(codeCell);
+      }
+      const code = productCode(product);
+      codeCell.textContent = code || "-";
+      const titleButton = tableRow.querySelector("[data-copy-title]");
+      if (titleButton) titleButton.dataset.copyTitleValue = code ? `${code} ${titleButton.textContent.trim()}` : titleButton.textContent.trim();
       let statusCell = tableRow.querySelector("[data-upload-status-cell]");
       if (!statusCell) {
         statusCell = document.createElement("td");
@@ -256,6 +304,52 @@
       }
       statusCell.innerHTML = statusMarkup(product);
     });
+  }
+
+  async function flushProductCodeSaves() {
+    if (savingCodes || !pendingCodeSaves.size) return;
+    savingCodes = true;
+    let failed = false;
+    try {
+      while (pendingCodeSaves.size) {
+        const [id, product] = pendingCodeSaves.entries().next().value;
+        pendingCodeSaves.delete(id);
+        try {
+          if (window.SelectCloud && SelectCloud.user) await SelectCloud.saveSaved(product);
+          else if (typeof saveLocalSavedProduct === "function") saveLocalSavedProduct(product);
+        } catch (_error) {
+          failed = true;
+        }
+      }
+    } finally {
+      savingCodes = false;
+      if (pendingCodeSaves.size) flushProductCodeSaves();
+      if (failed) alert("일부 품번을 저장하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
+    }
+  }
+
+  function ensureProductCodes() {
+    if (typeof saved === "undefined") return;
+    const candidates = saved
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => !isSold(product) && hasProductImage(product))
+      .sort((a, b) => String(a.product.createdAt || a.product.id || "").localeCompare(String(b.product.createdAt || b.product.id || "")));
+    const allExisting = new Set(candidates.map(({ product }) => productCode(product)).filter(Boolean));
+    const kept = new Set();
+    candidates.forEach(({ product, index }) => {
+      const current = productCode(product);
+      if (current && !kept.has(current)) {
+        kept.add(current);
+        return;
+      }
+      const code = allocateProductCode(allExisting);
+      allExisting.add(code);
+      kept.add(code);
+      const updated = withProductCode(product, code);
+      saved[index] = updated;
+      pendingCodeSaves.set(String(updated.id), updated);
+    });
+    flushProductCodeSaves();
   }
 
   function updateStatusText() {
@@ -272,6 +366,7 @@
       ensureStyles();
       ensureImageInput();
       ensureFilterBar();
+      ensureProductCodes();
       enhanceTable();
       updateStatusText();
     } finally {
@@ -356,10 +451,16 @@
   }
 
   function withProductImage(product, image) {
+    const existingCode = productCode(product);
+    const used = new Set(activeSavedProducts().filter(item => String(item.id) !== String(product.id)).map(productCode).filter(Boolean));
+    const code = existingCode || (image ? allocateProductCode(used) : "");
+    const measurements = { ...safeMeasurements(product), __productImage: image };
+    if (code) measurements.__productCode = code;
     return {
       ...product,
+      ...(code ? { code } : {}),
       productImage: image,
-      measurements: { ...safeMeasurements(product), __productImage: image },
+      measurements,
       updatedAt: new Date().toISOString()
     };
   }
