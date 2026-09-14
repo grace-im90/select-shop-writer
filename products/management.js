@@ -295,7 +295,11 @@
       const code = productCode(product);
       codeCell.textContent = code || "-";
       const titleButton = tableRow.querySelector("[data-copy-title]");
-      if (titleButton) titleButton.dataset.copyTitleValue = code ? `${code} ${titleButton.textContent.trim()}` : titleButton.textContent.trim();
+      if (titleButton) {
+        const title = titleButton.textContent.trim();
+        const size = String(product.size ?? safeMeasurements(product).__size ?? "").trim();
+        titleButton.dataset.copyTitleValue = [title, size, code].filter(Boolean).join(" ");
+      }
       let statusCell = tableRow.querySelector("[data-upload-status-cell]");
       if (!statusCell) {
         statusCell = document.createElement("td");
@@ -332,7 +336,7 @@
     if (typeof saved === "undefined") return;
     const candidates = saved
       .map((product, index) => ({ product, index }))
-      .filter(({ product }) => !isSold(product) && hasProductImage(product))
+      .filter(({ product }) => !isSold(product))
       .sort((a, b) => String(a.product.createdAt || a.product.id || "").localeCompare(String(b.product.createdAt || b.product.id || "")));
     const allExisting = new Set(candidates.map(({ product }) => productCode(product)).filter(Boolean));
     const kept = new Set();
