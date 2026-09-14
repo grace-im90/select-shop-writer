@@ -298,7 +298,12 @@
       if (titleButton) {
         const title = titleButton.textContent.trim();
         const size = String(product.size ?? safeMeasurements(product).__size ?? "").trim();
-        titleButton.dataset.copyTitleValue = [title, size, code].filter(Boolean).join(" ");
+        const escapedSize = size.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const titleAlreadyHasSize = Boolean(size) && new RegExp(
+          `(?:\\(${escapedSize}\\)|\\[${escapedSize}\\]|${escapedSize})$`,
+          "i"
+        ).test(title);
+        titleButton.dataset.copyTitleValue = [title, titleAlreadyHasSize ? "" : size, code].filter(Boolean).join(" ");
       }
       let statusCell = tableRow.querySelector("[data-upload-status-cell]");
       if (!statusCell) {
