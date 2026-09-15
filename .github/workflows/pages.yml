@@ -24,6 +24,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify product entry and saving
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          rm -rf node_modules
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:

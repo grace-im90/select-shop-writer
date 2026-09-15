@@ -55,7 +55,7 @@ function harness({ writeText, legacyResult = true, legacyThrows = false } = {}) 
 
 function title(textContent, disabled = false) {
   return {
-    textContent, disabled,
+    textContent, disabled, dataset: {},
     closest(selector) {
       assert.equal(selector, "button[data-copy-title]");
       return this;
@@ -78,7 +78,7 @@ test("copies the full Korean title only after a click and confirms completion", 
   assert.equal(app.notice, undefined);
   finishCopy();
   await copying;
-  assert.match(app.notice.textContent, /상품명이 복사되었습니다/);
+  assert.match(app.notice.textContent, /상품명 복사 완료/);
   assert.equal(app.notice.dataset.error, "false");
   assert.equal(app.notice.attributes.role, "status");
   assert.equal(app.notice.attributes["aria-live"], "polite");
@@ -165,8 +165,8 @@ test("a stale failure does not interrupt a newer successful copy", async () => {
 test("all three pages include the shared assets, native title buttons, and valid scripts", () => {
   for (const [path, prefix] of [["index.html", ""], ["products/index.html", "../"], ["products/sold/index.html", "../../"]]) {
     const html = readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-    assert.ok(html.includes(`href="${prefix}title-copy.css?v=1"`), path);
-    assert.ok(html.includes(`src="${prefix}title-copy.js?v=1"`), path);
+    assert.ok(html.includes(`href="${prefix}title-copy.css?v=`), path);
+    assert.ok(html.includes(`src="${prefix}title-copy.js?v=`), path);
     assert.match(html, /<button type="button"[^>]*data-copy-title/);
     assert.ok(html.includes("판매글 전체 복사"), path);
     for (const [, attributes, code] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
