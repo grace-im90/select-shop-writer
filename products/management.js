@@ -17,6 +17,8 @@
   let activeFilter = localStorage.getItem(FILTER_KEY) || "all";
   if (!filters.some(([key]) => key === activeFilter)) activeFilter = "all";
   let pendingImageIndex = null;
+  let imageModalIndex = null;
+  let imageModalPreviousFocus = null;
   let enhancing = false;
   let savingCodes = false;
   const pendingCodeSaves = new Map();
@@ -130,17 +132,25 @@
       ".shot-thumb{width:44px;height:56px;overflow:hidden;border:1px solid #d6dee8;border-radius:8px;background:#f4f7fb;padding:0}",
       ".shot-thumb img{display:block;width:100%;height:100%;object-fit:cover}",
       ".shot-add{height:31px;padding:0 10px;border:1px dashed #b7c4d8;border-radius:8px;background:#f8faff;color:#526075;font-size:9px;font-weight:800}",
-      ".shot-tools{display:none;flex-direction:column;gap:4px}",
-      ".product-shot.tools-open .shot-tools{display:flex}",
-      ".shot-tools button{height:24px;padding:0 7px;border:0;border-radius:6px;background:#edf3ff;color:#356ae6;font-size:8.5px;font-weight:800}",
-      ".shot-tools button.delete{background:#fff0f0;color:#c33}",
+      ".product-image-modal[hidden]{display:none}",
+      ".product-image-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.76);backdrop-filter:blur(3px)}",
+      ".product-image-dialog{width:min(720px,100%);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.35)}",
+      ".product-image-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid #e6ebf2}",
+      ".product-image-head strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;color:#172033}",
+      ".product-image-close{width:36px;height:36px;flex:0 0 36px;border:0;border-radius:9px;background:#f1f4f8;color:#526075;font-size:20px;cursor:pointer}",
+      ".product-image-stage{min-height:240px;display:flex;align-items:center;justify-content:center;padding:16px;background:#eef2f7;overflow:auto}",
+      ".product-image-stage img{display:block;max-width:100%;max-height:72vh;object-fit:contain;border-radius:10px;background:#fff}",
+      ".product-image-actions{display:flex;gap:10px;padding:14px 16px}",
+      ".product-image-actions button{min-width:0;flex:1;height:44px;border:0;border-radius:10px;background:#356ae6;color:#fff;font-size:14px;font-weight:800;cursor:pointer}",
+      ".product-image-actions button.delete{background:#fff0f0;color:#c33}",
+      "body.product-image-modal-open{overflow:hidden}",
       ".product-status{display:flex;flex-direction:column;gap:4px;min-width:82px}",
       ".status-pill{display:inline-flex;align-items:center;justify-content:center;width:max-content;height:25px;padding:0 8px;border-radius:7px;font-size:9px;font-weight:850}",
       ".status-pill.todo{background:#fff7ed;color:#b45309}",
       ".status-pill.partial{background:#eef6ff;color:#2563eb}",
       ".status-pill.done{background:#ecfdf5;color:#05845f}",
       ".product-status small{color:#8a95a5;font-size:8.5px}",
-      "@media(max-width:760px){.status-filters{padding:0 10px 11px}.product-shot-cell{min-width:84px}.product-code-cell{min-width:48px}.shot-thumb{width:38px;height:48px}.shot-tools button{width:42px;padding:0}.status-pill{height:23px;padding:0 7px}}"
+      "@media(max-width:760px){.status-filters{padding:0 10px 11px}.product-shot-cell{min-width:84px}.product-code-cell{min-width:48px}.shot-thumb{width:38px;height:48px}.status-pill{height:23px;padding:0 7px}.product-image-modal{padding:10px}.product-image-dialog{max-height:96vh;border-radius:13px}.product-image-stage{min-height:220px;padding:10px}.product-image-stage img{max-height:74vh}.product-image-actions{padding:12px}.product-image-actions button{height:42px}}}"
     ].join("");
     document.head.appendChild(style);
   }
@@ -162,6 +172,79 @@
     };
     document.body.appendChild(input);
     return input;
+  }
+
+  function closeImageModal() {
+    const modal = document.getElementById("productImageModal");
+    if (!modal || modal.hidden) return;
+    modal.hidden = true;
+    document.body.classList.remove("product-image-modal-open");
+    imageModalIndex = null;
+    imageModalPreviousFocus?.focus?.({ preventScroll: true });
+    imageModalPreviousFocus = null;
+  }
+
+  function ensureImageModal() {
+    let modal = document.getElementById("productImageModal");
+    if (modal) return modal;
+    modal = document.createElement("div");
+    modal.id = "productImageModal";
+    modal.className = "product-image-modal";
+    modal.hidden = true;
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "productImageModalTitle");
+    modal.innerHTML = [
+      '<div class="product-image-dialog">',
+      '<div class="product-image-head"><strong id="productImageModalTitle">제품 사진</strong><button type="button" class="product-image-close" data-modal-image-action="close" aria-label="사진 팝업 닫기">×</button></div>',
+      '<div class="product-image-stage"><img id="productImageModalPreview" alt="확대된 제품 사진"></div>',
+      '<div class="product-image-actions"><button type="button" data-modal-image-action="replace">사진 교체</button><button type="button" class="delete" data-modal-image-action="remove">사진 삭제</button></div>',
+      "</div>"
+    ].join("");
+    modal.addEventListener("click", async event => {
+      const actionButton = event.target.closest("[data-modal-image-action]");
+      if (!actionButton) {
+        if (event.target === modal) closeImageModal();
+        return;
+      }
+      const action = actionButton.dataset.modalImageAction;
+      if (action === "close") {
+        closeImageModal();
+        return;
+      }
+      const index = imageModalIndex;
+      if (!Number.isFinite(index)) return;
+      if (action === "replace") {
+        pendingImageIndex = index;
+        closeImageModal();
+        ensureImageInput().click();
+      } else if (action === "remove") {
+        actionButton.disabled = true;
+        const removed = await removeProductImage(index);
+        actionButton.disabled = false;
+        if (removed) closeImageModal();
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !modal.hidden) closeImageModal();
+    });
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function openImageModal(index) {
+    const product = typeof saved !== "undefined" ? saved[index] : null;
+    const image = productImage(product);
+    if (!image) return;
+    const modal = ensureImageModal();
+    const title = [product?.brand, product?.name].filter(Boolean).join(" ").trim() || "제품 사진";
+    modal.querySelector("#productImageModalTitle").textContent = title;
+    modal.querySelector("#productImageModalPreview").src = image.src;
+    imageModalIndex = index;
+    imageModalPreviousFocus = document.activeElement;
+    modal.hidden = false;
+    document.body.classList.add("product-image-modal-open");
+    modal.querySelector("[data-modal-image-action=\"close\"]")?.focus();
   }
 
   function ensureFilterBar() {
@@ -204,11 +287,7 @@
     }
     return [
       '<div class="product-shot">',
-      `<button type="button" class="shot-thumb" data-image-action="toggle" data-image-index="${index}" title="사진 관리" aria-expanded="false"><img src="${safeEsc(image.src)}" alt="대표 제품 사진"></button>`,
-      '<div class="shot-tools">',
-      `<button type="button" data-image-action="choose" data-image-index="${index}">교체</button>`,
-      `<button type="button" class="delete" data-image-action="remove" data-image-index="${index}">삭제</button>`,
-      "</div>",
+      `<button type="button" class="shot-thumb" data-image-action="preview" data-image-index="${index}" title="사진 크게 보기" aria-label="제품 사진 크게 보기"><img src="${safeEsc(image.src)}" alt="대표 제품 사진"></button>`,
       "</div>"
     ].join("");
   }
@@ -221,17 +300,8 @@
       if (!button) return;
       const index = Number(button.dataset.imageIndex);
       if (!Number.isFinite(index)) return;
-      if (button.dataset.imageAction === "toggle") {
-        const shot = button.closest(".product-shot");
-        const opening = !shot.classList.contains("tools-open");
-        body.querySelectorAll(".product-shot.tools-open").forEach(item => {
-          item.classList.remove("tools-open");
-          item.querySelector(".shot-thumb")?.setAttribute("aria-expanded", "false");
-        });
-        shot.classList.toggle("tools-open", opening);
-        button.setAttribute("aria-expanded", String(opening));
-      } else if (button.dataset.imageAction === "remove") {
-        removeProductImage(index);
+      if (button.dataset.imageAction === "preview") {
+        openImageModal(index);
       } else {
         pendingImageIndex = index;
         ensureImageInput().click();
@@ -407,6 +477,7 @@
     try {
       ensureStyles();
       ensureImageInput();
+      ensureImageModal();
       ensureFilterBar();
       ensureProductCodes();
       enhanceTable();
@@ -543,11 +614,13 @@
   }
 
   async function removeProductImage(index) {
-    if (!confirm("대표컷을 삭제할까요?")) return;
+    if (!confirm("대표컷을 삭제할까요?")) return false;
     try {
       await saveProductImage(index, null);
+      return true;
     } catch (error) {
       alert(error.message || "대표컷을 삭제하지 못했습니다.");
+      return false;
     }
   }
 
@@ -585,6 +658,7 @@
   const start = () => {
     ensureStyles();
     ensureImageInput();
+    ensureImageModal();
     if (!patchProductPage()) setTimeout(start, 100);
   };
 
