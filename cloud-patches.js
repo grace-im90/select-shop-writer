@@ -68,8 +68,56 @@
     element.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
-  function trimProductName(value) {
-    return Array.from(String(value || "").trim()).slice(0, 25).join("");
+  var KOREAN_BRANDS = {
+    "mont-bell": "몽벨", "montbell": "몽벨", "몽벨": "몽벨",
+    "beslow": "비슬로우", "비슬로우": "비슬로우",
+    "patagonia": "파타고니아", "파타고니아": "파타고니아",
+    "nike": "나이키", "나이키": "나이키",
+    "adidas": "아디다스", "아디다스": "아디다스",
+    "the north face": "노스페이스", "north face": "노스페이스", "노스페이스": "노스페이스",
+    "polo ralph lauren": "폴로 랄프 로렌", "ralph lauren": "폴로 랄프 로렌", "폴로 랄프 로렌": "폴로 랄프 로렌",
+    "champion": "챔피온", "챔피온": "챔피온",
+    "carhartt": "칼하트", "칼하트": "칼하트",
+    "lacoste": "라코스테", "라코스테": "라코스테",
+    "levi's": "리바이스", "levis": "리바이스", "리바이스": "리바이스",
+    "gap": "갭", "갭": "갭",
+    "eddie bauer": "에디바우어", "에디바우어": "에디바우어",
+    "l.l.bean": "엘엘빈", "ll bean": "엘엘빈", "엘엘빈": "엘엘빈",
+    "columbia": "컬럼비아", "컬럼비아": "컬럼비아",
+    "new balance": "뉴발란스", "뉴발란스": "뉴발란스",
+    "stussy": "스투시", "스투시": "스투시",
+    "dickies": "디키즈", "디키즈": "디키즈",
+    "tommy hilfiger": "타미 힐피거", "타미 힐피거": "타미 힐피거",
+    "umbro": "엄브로", "엄브로": "엄브로",
+    "asics": "아식스", "아식스": "아식스",
+    "reebok": "리복", "리복": "리복",
+    "puma": "푸마", "푸마": "푸마",
+    "uniqlo": "유니클로", "유니클로": "유니클로"
+  };
+
+  function normalizeBrandKorean(value) {
+    var raw = String(value || "").trim().replace(/\s+/g, " ");
+    if (!raw) return "";
+    return KOREAN_BRANDS[raw.toLowerCase()] || raw;
+  }
+
+  function normalizeSize(value) {
+    var raw = String(value || "").trim().toUpperCase();
+    if (raw === "F") return "FREE";
+    return raw;
+  }
+
+  function buildProductName(brand, value, size) {
+    var cleanBrand = String(brand || "").trim().replace(/\s+/g, " ");
+    var cleanSize = normalizeSize(size);
+    var base = String(value || "").trim().replace(/\s+/g, " ");
+    base = base.replace(/\s*\((?:XS|S|M|L|XL|2XL|3XL|FREE|F|\d{2,3})\)\s*$/i, "").trim();
+    if (cleanBrand && base.toLowerCase().indexOf(cleanBrand.toLowerCase() + " ") === 0) base = base.slice(cleanBrand.length).trim();
+    var suffix = cleanSize ? " (" + cleanSize + ")" : "";
+    var fixedLength = Array.from(cleanBrand).length + (cleanBrand ? 1 : 0) + Array.from(suffix).length;
+    var budget = Math.max(0, 25 - fixedLength);
+    var trimmedBase = Array.from(base).slice(0, budget).join("").trimEnd();
+    return trimmedBase + suffix;
   }
 
   function ensureBlankSizeOption(select) {
@@ -81,9 +129,24 @@
       blank.textContent = "-";
       select.insertBefore(blank, select.firstChild);
     }
-    select.value = "";
-    select.dispatchEvent(new Event("input", { bubbles: true }));
-    select.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function setSizeValue(select, value) {
+    if (!select) return;
+    ensureBlankSizeOption(select);
+    var size = normalizeSize(value);
+    if (!size) {
+      setFormValue(select, "");
+      return;
+    }
+    var exists = Array.from(select.options).some(function (option) { return option.value === size; });
+    if (!exists) {
+      var option = document.createElement("option");
+      option.value = size;
+      option.textContent = size;
+      select.appendChild(option);
+    }
+    setFormValue(select, size);
   }
 
   function selectProductType(productType) {
@@ -105,10 +168,8 @@
     var previous = document.getElementById("aiInstagramBox");
     if (previous) previous.remove();
     if (!caption) return;
-
     var notice = document.querySelector(".notice");
     if (!notice || !notice.parentNode) return;
-
     var box = document.createElement("div");
     box.id = "aiInstagramBox";
     box.style.cssText = "margin-top:20px;padding:16px;border:1px solid #cfdcf3;border-radius:13px;background:#f7faff";
@@ -146,10 +207,12 @@
     var description = document.getElementById("desc");
     if (!brand || !name || !size || !condition || !description || !document.querySelector("#types button")) return false;
 
-    setFormValue(brand, payload.brand || "");
-    setFormValue(name, trimProductName(payload.name));
+    var koreanBrand = normalizeBrandKorean(payload.brand || "");
+    var labelSize = normalizeSize(payload.size || payload.labelSize || "");
+    setFormValue(brand, koreanBrand);
+    setFormValue(name, buildProductName(koreanBrand, payload.name, labelSize));
     selectProductType(payload.productType || payload.type || "상의");
-    ensureBlankSizeOption(size);
+    setSizeValue(size, labelSize);
     clearMeasurements();
     setFormValue(price, "");
 
@@ -158,7 +221,7 @@
     }
     setFormValue(description, payload.description || "");
     addAiCaptionBox(payload.instagramCaption || payload.instagram || "");
-    showAiStatus("AI 상품 정보를 불러왔습니다. 사이즈와 실측, 가격만 직접 입력해 주세요.", false);
+    showAiStatus("AI 상품 정보를 불러왔습니다. 상품명은 브랜드+상품명+표기 사이즈 포함 25자로 맞췄습니다. 실측과 가격만 직접 입력해 주세요.", false);
     return true;
   }
 
@@ -167,7 +230,6 @@
     if (!/\/select-shop-writer\/$/.test(path) && path !== "/") return;
     var payload = readAiPayload();
     if (!payload) return;
-
     var attempts = 0;
     var timer = setInterval(function () {
       attempts += 1;
