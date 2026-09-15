@@ -297,13 +297,18 @@
       const titleButton = tableRow.querySelector("[data-copy-title]");
       if (titleButton) {
         const title = titleButton.textContent.trim();
-        const size = String(product.size ?? safeMeasurements(product).__size ?? "").trim();
-        const escapedSize = size.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const titleAlreadyHasSize = Boolean(size) && new RegExp(
-          `(?:\\(${escapedSize}\\)|\\[${escapedSize}\\]|${escapedSize})$`,
-          "i"
-        ).test(title);
-        titleButton.dataset.copyTitleValue = [title, titleAlreadyHasSize ? "" : size, code].filter(Boolean).join(" ");
+        const rawSize = String(product.size ?? safeMeasurements(product).__size ?? "").trim();
+        const size = rawSize.replace(/^[([]\s*|\s*[)\]]$/g, "").trim();
+        let titleWithSize = title;
+        if (size) {
+          const escapedSize = size.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const wrappedSizePattern = new RegExp(`(?:\\(${escapedSize}\\)|\\[${escapedSize}\\])$`, "i");
+          const bareSizePattern = new RegExp(`(?:^|\\s+)${escapedSize}$`, "i");
+          if (wrappedSizePattern.test(title)) titleWithSize = title.replace(wrappedSizePattern, `(${size})`);
+          else if (bareSizePattern.test(title)) titleWithSize = title.replace(bareSizePattern, `(${size})`);
+          else titleWithSize = `${title}(${size})`;
+        }
+        titleButton.dataset.copyTitleValue = [titleWithSize, code].filter(Boolean).join(" ");
       }
       let statusCell = tableRow.querySelector("[data-upload-status-cell]");
       if (!statusCell) {
