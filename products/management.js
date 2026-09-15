@@ -335,8 +335,7 @@
           if (lastSpace > 0) limitedTitle = limitedTitle.slice(0, lastSpace);
         }
         const menuName = `${limitedTitle}${sizeSuffix}`.trim();
-        const paddedMenuName = code ? menuName.padEnd(25, " ") : menuName;
-        titleButton.dataset.copyTitleValue = [paddedMenuName, code].filter(Boolean).join(" ");
+        titleButton.dataset.copyTitleValue = [menuName, code].filter(Boolean).join(" ");
         titleButton.dataset.copyLabel = "메뉴명·품번";
       }
       let statusCell = tableRow.querySelector("[data-upload-status-cell]");
