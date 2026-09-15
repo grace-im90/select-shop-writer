@@ -125,6 +125,7 @@
       ".status-filters button.on{border-color:#356ae6;background:#eaf1ff;color:#356ae6}",
       ".product-shot-cell{min-width:104px}",
       ".product-code-cell{min-width:54px;color:#356ae6;font-weight:850}",
+      ".product-code-copy{border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;padding:4px;cursor:pointer}",
       ".product-shot{display:flex;align-items:center;gap:7px}",
       ".shot-thumb{width:44px;height:56px;overflow:hidden;border:1px solid #d6dee8;border-radius:8px;background:#f4f7fb;padding:0}",
       ".shot-thumb img{display:block;width:100%;height:100%;object-fit:cover}",
@@ -293,22 +294,48 @@
         shotCell.after(codeCell);
       }
       const code = productCode(product);
-      codeCell.textContent = code || "-";
-      const titleButton = tableRow.querySelector("[data-copy-title]");
+      codeCell.textContent = "";
+      if (code) {
+        const codeButton = document.createElement("button");
+        codeButton.type = "button";
+        codeButton.className = "product-code-copy";
+        codeButton.dataset.copyTitle = "";
+        codeButton.dataset.copyTitleValue = code;
+        codeButton.dataset.copyLabel = "품번";
+        codeButton.title = "클릭해서 품번 복사";
+        codeButton.textContent = code;
+        codeCell.appendChild(codeButton);
+      } else {
+        codeCell.textContent = "-";
+      }
+      const titleButton = tableRow.querySelector(".product-name [data-copy-title]");
       if (titleButton) {
         const title = titleButton.textContent.trim();
         const rawSize = String(product.size ?? safeMeasurements(product).__size ?? "").trim();
         const size = rawSize.replace(/^[([]\s*|\s*[)\]]$/g, "").trim();
-        let titleWithSize = title;
+        let baseTitle = title;
         if (size) {
           const escapedSize = size.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
           const wrappedSizePattern = new RegExp(`(?:\\(${escapedSize}\\)|\\[${escapedSize}\\])$`, "i");
           const bareSizePattern = new RegExp(`(?:^|\\s+)${escapedSize}$`, "i");
-          if (wrappedSizePattern.test(title)) titleWithSize = title.replace(wrappedSizePattern, `(${size})`);
-          else if (bareSizePattern.test(title)) titleWithSize = title.replace(bareSizePattern, `(${size})`);
-          else titleWithSize = `${title}(${size})`;
+          if (wrappedSizePattern.test(baseTitle)) baseTitle = baseTitle.replace(wrappedSizePattern, "").trimEnd();
+          else if (bareSizePattern.test(baseTitle)) baseTitle = baseTitle.replace(bareSizePattern, "").trimEnd();
         }
-        titleButton.dataset.copyTitleValue = [titleWithSize, code].filter(Boolean).join(" ");
+        const sizeSuffix = size ? ` (${size})` : "";
+        const maxBaseLength = Math.max(0, 25 - Array.from(sizeSuffix).length);
+        const baseCharacters = Array.from(baseTitle);
+        let limitedTitle = baseCharacters.slice(0, maxBaseLength).join("").trimEnd();
+        if (
+          baseCharacters.length > maxBaseLength &&
+          maxBaseLength > 0 &&
+          baseCharacters[maxBaseLength - 1] !== " " &&
+          baseCharacters[maxBaseLength] !== " "
+        ) {
+          const lastSpace = limitedTitle.lastIndexOf(" ");
+          if (lastSpace > 0) limitedTitle = limitedTitle.slice(0, lastSpace);
+        }
+        titleButton.dataset.copyTitleValue = `${limitedTitle}${sizeSuffix}`.trim();
+        titleButton.dataset.copyLabel = "메뉴명";
       }
       let statusCell = tableRow.querySelector("[data-upload-status-cell]");
       if (!statusCell) {

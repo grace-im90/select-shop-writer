@@ -57,15 +57,16 @@
     const button = event.target.closest?.("button[data-copy-title]");
     if (!button || button.disabled) return;
     const text = (button.dataset.copyTitleValue || button.textContent).trim();
+    const label = button.dataset.copyLabel || "상품명";
     if (!text) return;
     const request = ++latestRequest;
     const copied = await writeTitle(text);
     if (request !== latestRequest) return;
     if (copied) {
-      showNotice("✓ 상품명이 복사되었습니다.");
+      showNotice(`✓ ${label} 복사 완료`);
     } else {
       showNotice("자동 복사가 차단됐습니다. 아래 창에서 상품명을 복사해 주세요.", true);
-      window.prompt("상품명을 길게 누르거나 선택해 복사해 주세요.", text);
+      window.prompt("복사할 내용을 길게 누르거나 선택해 주세요.", text);
     }
   });
 })();
