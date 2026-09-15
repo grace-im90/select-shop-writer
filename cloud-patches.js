@@ -11,12 +11,28 @@
     return Object.prototype.hasOwnProperty.call(object || {}, key);
   }
 
+  function currentAiImage() {
+    var image = window.__selectAiProductImage;
+    if (typeof image === "string" && image.trim()) return { src: image.trim() };
+    if (image && typeof image === "object" && image.src) return image;
+    return null;
+  }
+
   function patchCloudSave() {
     var cloud = window.SelectCloud;
     if (!cloud || cloud.__productMetadataPatch) return cloud ? undefined : setTimeout(patchCloudSave, 50);
     var originalSave = cloud.saveSaved;
     var originalGet = cloud.getSaved;
     cloud.saveSaved = async function (product) {
+      var aiImage = currentAiImage();
+      if (product && aiImage) {
+        var aiMeasurements = { ...normalizeMeasurements(product.measurements) };
+        if (!hasOwn(aiMeasurements, "__productImage") && !product.productImage) {
+          aiMeasurements.__productImage = aiImage;
+          product = { ...product, productImage: aiImage, measurements: aiMeasurements };
+        }
+      }
+
       if (product && product.id && typeof originalGet === "function") {
         var measurements = { ...normalizeMeasurements(product.measurements) };
         var needsUpload = !hasOwn(measurements, "__uploadSites");
@@ -35,7 +51,10 @@
           } catch (_error) {}
         }
       }
-      return originalSave.call(this, product);
+
+      var saved = await originalSave.call(this, product);
+      if (aiImage) window.__selectAiProductImage = null;
+      return saved;
     };
     Object.defineProperty(cloud, "__productMetadataPatch", { value: true });
   }
@@ -51,8 +70,9 @@
 
   function readAiPayload() {
     try {
-      var params = new URLSearchParams(location.search);
-      var encoded = params.get("aiData");
+      var queryParams = new URLSearchParams(location.search);
+      var hashParams = new URLSearchParams(String(location.hash || "").replace(/^#/, ""));
+      var encoded = queryParams.get("aiData") || hashParams.get("aiData");
       if (!encoded) return null;
       var payload = JSON.parse(decodeBase64Url(encoded));
       return payload && typeof payload === "object" ? payload : null;
@@ -149,6 +169,12 @@
     setFormValue(select, size);
   }
 
+  function normalizeThumbnail(value) {
+    if (typeof value === "string" && value.startsWith("data:image/")) return { src: value };
+    if (value && typeof value === "object" && typeof value.src === "string" && value.src.startsWith("data:image/")) return { src: value.src };
+    return null;
+  }
+
   function selectProductType(productType) {
     if (!productType) return;
     var target = String(productType).trim();
@@ -191,11 +217,52 @@
     });
   }
 
+  function addAiThumbnailPreview(image) {
+    var previous = document.getElementById("aiThumbnailPreview");
+    if (previous) previous.remove();
+    if (!image || !image.src) return;
+    var notice = document.querySelector(".notice");
+    if (!notice || !notice.parentNode) return;
+    var box = document.createElement("div");
+    box.id = "aiThumbnailPreview";
+    box.style.cssText = "margin-top:16px;padding:12px;border:1px solid #dfe5ed;border-radius:12px;background:#fbfcfe;display:flex;align-items:center;gap:12px";
+    box.innerHTML = '<img alt="상품 썸네일" style="width:54px;height:72px;object-fit:cover;border:1px solid #d6dee8;border-radius:8px;background:#fff"><div><b style="display:block;font-size:11px">상품목록 썸네일</b><span style="display:block;margin-top:4px;color:#7c8797;font-size:9px;line-height:1.5">정면 전체 이미지 1장만 저용량으로 저장됩니다.</span></div>';
+    box.querySelector("img").src = image.src;
+    notice.parentNode.insertBefore(box, notice);
+  }
+
   function showAiStatus(message, isError) {
     var status = document.getElementById("saveStatus");
     if (!status) return;
     status.textContent = message;
     status.classList.toggle("error", !!isError);
+  }
+
+  function patchLocalSaveButton() {
+    var button = document.getElementById("saveProduct");
+    if (!button || button.__aiThumbnailPatched) return;
+    button.__aiThumbnailPatched = true;
+    button.addEventListener("click", function () {
+      var image = currentAiImage();
+      if (!image || (window.SelectCloud && window.SelectCloud.user)) return;
+      var brand = String(document.getElementById("brand")?.value || "").trim();
+      var name = String(document.getElementById("name")?.value || "").trim();
+      if (!name) return;
+      setTimeout(function () {
+        try {
+          var products = JSON.parse(localStorage.getItem("select-saved-products") || "[]");
+          var index = products.findIndex(function (item) {
+            return String(item?.brand || "").trim() === brand && String(item?.name || "").trim() === name;
+          });
+          if (index < 0) return;
+          var product = products[index];
+          var measurements = { ...normalizeMeasurements(product.measurements), __productImage: image };
+          products[index] = { ...product, productImage: image, measurements: measurements };
+          localStorage.setItem("select-saved-products", JSON.stringify(products));
+          window.__selectAiProductImage = null;
+        } catch (_error) {}
+      }, 350);
+    }, true);
   }
 
   function applyAiPayload(payload) {
@@ -209,6 +276,9 @@
 
     var koreanBrand = normalizeBrandKorean(payload.brand || "");
     var labelSize = normalizeSize(payload.size || payload.labelSize || "");
+    var thumbnail = normalizeThumbnail(payload.thumbnail || payload.productImage || payload.image);
+    window.__selectAiProductImage = thumbnail;
+
     setFormValue(brand, koreanBrand);
     setFormValue(name, buildProductName(koreanBrand, payload.name, labelSize));
     selectProductType(payload.productType || payload.type || "상의");
@@ -221,7 +291,9 @@
     }
     setFormValue(description, payload.description || "");
     addAiCaptionBox(payload.instagramCaption || payload.instagram || "");
-    showAiStatus("AI 상품 정보를 불러왔습니다. 상품명은 브랜드+상품명+표기 사이즈 포함 25자로 맞췄습니다. 실측과 가격만 직접 입력해 주세요.", false);
+    addAiThumbnailPreview(thumbnail);
+    patchLocalSaveButton();
+    showAiStatus("AI 상품 정보를 불러왔습니다. 브랜드+상품명+표기 사이즈는 25자 이내로 맞췄고, 정면 썸네일 1장도 함께 준비했습니다. 실측과 가격만 직접 입력해 주세요.", false);
     return true;
   }
 
