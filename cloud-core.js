@@ -6,6 +6,7 @@
   let readyResolve;
   const readyPromise = new Promise(resolve => { readyResolve = resolve; });
   const listeners = [];
+  let initialized = false;
 
   function normalizeMeasurements(value) {
     if (!value) return {};
@@ -80,6 +81,7 @@
   async function initialize() {
     const { data } = await client.auth.getSession();
     currentUser = data.session?.user || null;
+    initialized = true;
     readyResolve(currentUser);
     await notify();
     client.auth.onAuthStateChange((_event, session) => {
@@ -102,7 +104,10 @@
   }
 
   function bindAuth(onChange) {
-    if (onChange) listeners.push(onChange);
+    if (onChange) {
+      listeners.push(onChange);
+      if (initialized) setTimeout(() => onChange(currentUser), 0);
+    }
     const email = document.getElementById("cloudEmail");
     const password = document.getElementById("cloudPassword");
     const login = document.getElementById("cloudLogin");
@@ -125,7 +130,6 @@
       }
     });
     logout && (logout.onclick = () => client.auth.signOut());
-    readyPromise.then(() => onChange && onChange(currentUser));
     updateAuthUI();
   }
 
@@ -419,7 +423,6 @@
     syncCatalog,
     setStatus: updateAuthUI
   };
-  setupProductUploadChecks();
   initialize().catch(error => {
     readyResolve(null);
     updateAuthUI(error.message || "클라우드 연결을 확인하지 못했습니다.");
