@@ -22,6 +22,8 @@
   let enhancing = false;
   let savingCodes = false;
   const pendingCodeSaves = new Map();
+  const pendingImageLoads = new Set();
+  const loadedImageIds = new Set();
 
   function safeEsc(value) {
     if (typeof esc === "function") return esc(value);
@@ -131,6 +133,7 @@
       ".product-shot{display:flex;align-items:center;gap:7px}",
       ".shot-thumb{width:44px;height:56px;overflow:hidden;border:1px solid #d6dee8;border-radius:8px;background:#f4f7fb;padding:0}",
       ".shot-thumb img{display:block;width:100%;height:100%;object-fit:cover}",
+      ".shot-loading{display:flex;align-items:center;justify-content:center;width:44px;height:56px;border:1px solid #d6dee8;border-radius:8px;background:#f4f7fb;color:#8a95a5;font-size:8px}",
       ".shot-add{height:31px;padding:0 10px;border:1px dashed #b7c4d8;border-radius:8px;background:#f8faff;color:#526075;font-size:9px;font-weight:800}",
       ".product-image-modal[hidden]{display:none}",
       ".product-image-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.76);backdrop-filter:blur(3px)}",
@@ -283,6 +286,7 @@
   function shotMarkup(product, index) {
     const image = productImage(product);
     if (!image) {
+      if (window.SelectCloud?.user && !loadedImageIds.has(String(product.id))) return `<div class="product-shot"><span class="shot-loading">불러오는 중</span></div>`;
       return `<div class="product-shot"><button type="button" class="shot-add" data-image-action="choose" data-image-index="${index}">사진 추가</button></div>`;
     }
     return [
@@ -416,6 +420,38 @@
       }
       statusCell.innerHTML = statusMarkup(product);
     });
+    loadVisibleProductImages();
+  }
+
+  async function loadVisibleProductImages() {
+    if (!window.SelectCloud?.user || typeof SelectCloud.loadSavedImages !== "function") return;
+    const body = document.getElementById("tableBody");
+    if (!body || typeof saved === "undefined") return;
+    const requested = [...body.querySelectorAll("[data-saved-edit]")]
+      .map(button => saved[Number(button.dataset.savedEdit)])
+      .filter(product => product && !loadedImageIds.has(String(product.id)) && !pendingImageLoads.has(String(product.id)));
+    if (!requested.length) return;
+    requested.forEach(product => pendingImageLoads.add(String(product.id)));
+    try {
+      const images = await SelectCloud.loadSavedImages(requested.map(product => product.id));
+      const byId = new Map(images.map(item => [String(item.id), item.productImage]));
+      requested.forEach(product => {
+        const id = String(product.id);
+        loadedImageIds.add(id);
+        const index = saved.findIndex(item => String(item.id) === id);
+        if (index < 0) return;
+        const image = byId.get(id);
+        const measurements = { ...safeMeasurements(saved[index]) };
+        if (image) measurements.__productImage = image;
+        else delete measurements.__productImage;
+        saved[index] = { ...saved[index], productImage: image || null, measurements };
+      });
+      enhanceTable();
+    } catch (_error) {
+      // Leave unloaded rows retryable on the next page render.
+    } finally {
+      requested.forEach(product => pendingImageLoads.delete(String(product.id)));
+    }
   }
 
   async function flushProductCodeSaves() {
@@ -628,6 +664,11 @@
     if (typeof filtered !== "function" || typeof render !== "function") return false;
     const baseFiltered = filtered;
     const baseRender = render;
+    const baseLoadSaved = loadSaved;
+    loadSaved = async function () {
+      loadedImageIds.clear();
+      return baseLoadSaved.apply(this, arguments);
+    };
     filtered = function () {
       const rows = baseFiltered();
       if (typeof mode === "undefined" || mode !== "saved") return rows;

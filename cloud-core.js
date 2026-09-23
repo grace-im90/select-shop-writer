@@ -45,6 +45,21 @@
     };
   }
 
+  const savedIndexKeys = ["length", "shoulder", "chest", "sleeve", "waist", "hip", "thigh", "rise", "hem", "__draft", "__productCode", "__uploadSites", "__soldAt", "__status", "__brand", "__name", "__productType", "__size", "__condition", "__price", "__description", "__notice", "__instagramCaption", "__finalText", "__savedVersion"];
+  const savedIndexSelect = ["id", "brand", "name", "product_type", "size", "condition", "price", "description", "created_at", "updated_at", ...savedIndexKeys.map(key => {
+    const alias = "m_" + key.replace(/^__/, "");
+    return `${alias}:measurements->${key}`;
+  })].join(",");
+
+  function savedIndexFromRow(row) {
+    const measurements = {};
+    savedIndexKeys.forEach(key => {
+      const alias = "m_" + key.replace(/^__/, "");
+      if (row[alias] !== undefined && row[alias] !== null) measurements[key] = row[alias];
+    });
+    return savedFromRow({ ...row, measurements });
+  }
+
   function catalogFromRow(row) {
     return {
       code: row.code || "",
@@ -136,9 +151,19 @@
   async function listSaved() {
     await readyPromise;
     if (!currentUser) return null;
-    const { data, error } = await client.from("saved_products").select("*").order("updated_at", { ascending: false });
+    const { data, error } = await client.from("saved_products").select(savedIndexSelect).order("updated_at", { ascending: false });
     if (error) throw error;
-    return data.map(savedFromRow);
+    return data.map(savedIndexFromRow);
+  }
+
+  async function listSavedImages(ids) {
+    await readyPromise;
+    if (!currentUser || !Array.isArray(ids) || ids.length === 0) return [];
+    const { data, error } = await client.from("saved_products")
+      .select("id,productImage:measurements->__productImage")
+      .in("id", ids);
+    if (error) throw error;
+    return data.map(row => ({ id: row.id, productImage: row.productImage ?? null }));
   }
 
   async function getSaved(id) {
@@ -416,6 +441,7 @@
     get user() { return currentUser; },
     bindAuth,
     listSaved,
+    listSavedImages,
     getSaved,
     saveSaved,
     deleteSaved,
