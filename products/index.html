@@ -25,7 +25,7 @@
   <link rel="stylesheet" href="table.css?v=4">
 </head>
 <body>
-  <header class="top"><div><div class="brandline">SELECT SHOP 343</div><h1>셀렉상회 상품 목차</h1></div><p>저장한 상품 목록과 판매 상태를 관리합니다.</p><nav class="topnav"><a href="https://grace-im90.github.io/select-shop-writer/?app=26&new=1" target="_top">판매글 작성</a><a class="on" href="https://grace-im90.github.io/select-shop-writer/products/?app=26" target="_top">상품 목차</a><a href="https://grace-im90.github.io/select-shop-writer/products/sold/?app=26" target="_top">판매완료</a><a href="https://grace-im90.github.io/select-shop-writer/camera/?app=26" target="_top">카메라 촬영</a></nav></header>
+  <header class="top"><div><div class="brandline">SELECT SHOP 343</div><h1>셀렉상회 상품 목차</h1></div><p>저장한 상품 목록과 판매 상태를 관리합니다.</p><nav class="topnav"><a href="https://grace-im90.github.io/select-shop-writer/?app=27&new=1" target="_top">판매글 작성</a><a class="on" href="https://grace-im90.github.io/select-shop-writer/products/?app=27" target="_top">상품 목차</a><a href="https://grace-im90.github.io/select-shop-writer/products/sold/?app=27" target="_top">판매완료</a><a href="https://grace-im90.github.io/select-shop-writer/camera/?app=27" target="_top">카메라 촬영</a></nav></header>
   <section class="cloudbar">
     <input id="cloudEmail" type="email" placeholder="클라우드 로그인 이메일" autocomplete="email">
     <input id="cloudPassword" type="password" placeholder="비밀번호 6자리 이상" autocomplete="current-password">
@@ -36,7 +36,7 @@
     <span id="cloudStatus" class="cloud-status">클라우드 연결 준비 중…</span>
   </section>
   <main class="wrap">
-    <div class="intro"><div><h2>상품 목록</h2><p>판매완료 처리한 상품은 이 목록에서 숨겨지고 판매완료 페이지로 이동합니다.</p></div><div class="intro-actions"><a class="new secondary" href="https://grace-im90.github.io/select-shop-writer/products/sold/?app=26" target="_top">판매완료 목록</a><a class="new" href="https://grace-im90.github.io/select-shop-writer/?app=26&new=1" target="_top">＋ 새 판매글 작성</a></div></div>
+    <div class="intro"><div><h2>상품 목록</h2><p>판매완료 처리한 상품은 이 목록에서 숨겨지고 판매완료 페이지로 이동합니다.</p></div><div class="intro-actions"><a class="new secondary" href="https://grace-im90.github.io/select-shop-writer/products/sold/?app=27" target="_top">판매완료 목록</a><a class="new" href="https://grace-im90.github.io/select-shop-writer/?app=27&new=1" target="_top">＋ 새 판매글 작성</a></div></div>
     <section class="summary"><article><span>판매중 상품</span><b id="savedTotal">0개</b></article><article><span>판매완료</span><b id="soldTotal">0개</b></article></section>
     <section class="panel">
       <div class="list-search-title"><b>등록 상품 검색</b><span>상품명을 클릭하면 제목이 복사됩니다.</span></div>
@@ -77,12 +77,12 @@
   </div>
   <script src="../title-copy.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://grace-im90.github.io/select-shop-writer/cloud.js?v=24"></script>
+  <script src="https://grace-im90.github.io/select-shop-writer/cloud.js?v=25"></script>
   <script>
     const $=id=>document.getElementById(id);let saved=[],mode="saved",page=1;const pageSize=50,uploadSites=[["carrot","당근"],["bunjang","번개장터"],["fruits","후르츠"]];
     function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
     function dateText(value){const date=new Date(value);return Number.isNaN(date.getTime())?"-":date.toLocaleDateString("ko-KR")}
-    async function loadSaved(){try{await SelectCloud.ready();const cloud=SelectCloud.user?await SelectCloud.listSaved():null;saved=cloud??JSON.parse(localStorage.getItem("select-saved-products")||"[]");updateSavedCounts()}catch(error){saved=[];updateSavedCounts();$("status").textContent=error.message||"저장 상품을 불러오지 못했습니다."}render()}
+    async function loadSaved(){const started=performance.now();let message="";try{await SelectCloud.ready();const cloud=SelectCloud.user?await SelectCloud.listSaved({summary:true}):null;saved=cloud??JSON.parse(localStorage.getItem("select-saved-products")||"[]");updateSavedCounts()}catch(error){message=error.message||"저장 상품을 불러오지 못했습니다."}render();$("status").dataset.loadMs=String(Math.round(performance.now()-started));if(message)$("status").textContent=message}
     function updateSavedCounts(){const active=saved.filter(p=>!isSold(p)).length,soldCount=saved.filter(isSold).length;$("savedTotal").textContent=active.toLocaleString("ko-KR")+"개";$("soldTotal").textContent=soldCount.toLocaleString("ko-KR")+"개"}
     function productCreatedTime(p){const created=Date.parse(p?.createdAt||"");if(Number.isFinite(created))return created;const numericId=Number(p?.id);if(Number.isFinite(numericId))return numericId;const fallback=Date.parse(p?.updatedAt||"");return Number.isFinite(fallback)?fallback:0}
     function filtered(){const q=$("query").value.toLowerCase().replace(/\s+/g,"");const source=saved.filter(p=>!isSold(p)).slice().sort((a,b)=>productCreatedTime(b)-productCreatedTime(a)||String(b.id??"").localeCompare(String(a.id??"")));if(!q)return source;return source.filter(p=>{const stored=measurementsOf(p);return Object.values({name:p.name,brand:p.brand,code:p.code||stored.__productCode||"",barcode:p.barcode,size:p.size}).join(" ").toLowerCase().replace(/\s+/g,"").includes(q)})}
@@ -95,7 +95,21 @@
     function uploadControls(p,index){const state=uploadState(p);return`<div class="upload-sites">${uploadSites.map(([key,label])=>`<label class="upload-check"><input type="checkbox" data-upload-index="${index}" data-upload-site="${key}" ${state[key]?"checked":""} aria-label="${label} 업로드 완료"><span>${label}</span></label>`).join("")}</div>`}
     function saveLocalSavedProduct(updated){const list=JSON.parse(localStorage.getItem("select-saved-products")||"[]"),pos=list.findIndex(item=>String(item.id)===String(updated.id));if(pos>=0)list[pos]=updated;else list.unshift(updated);localStorage.setItem("select-saved-products",JSON.stringify(list))}
     async function markSold(index){const current=saved[index];if(!current)return;const label=[current.brand,current.name].filter(Boolean).join(" ")||"이 상품";if(!confirm(`‘${label}’ 상품을 판매완료 처리할까요?\n상품 목차에서는 숨겨지고 판매완료 페이지로 이동합니다.`))return;const soldAt=new Date().toISOString(),nextMeasurements={...measurementsOf(current),__soldAt:soldAt,__status:"sold"},updated={...current,soldAt,measurements:nextMeasurements,updatedAt:soldAt};saved[index]=updated;try{if(window.SelectCloud&&SelectCloud.user)await SelectCloud.saveSaved(updated);else saveLocalSavedProduct(updated);await loadSaved()}catch(error){saved[index]=current;alert(error.message||"판매완료 처리하지 못했습니다.")}}
-    async function toggleUploadSite(index,key,checked,input){const current=saved[index];if(!current)return;const label=input?.closest(".upload-check"),nextState={...uploadState(current),[key]:checked},updated={...current,uploadSites:nextState,measurements:{...measurementsOf(current),__uploadSites:nextState},updatedAt:new Date().toISOString()};saved[index]=updated;if(input){input.disabled=true;label?.classList.add("saving")}try{if(window.SelectCloud&&SelectCloud.user)await SelectCloud.saveSaved(updated);else saveLocalSavedProduct(updated);if(detailProduct&&String(detailProduct.id)===String(updated.id))detailProduct=updated}catch(error){saved[index]=current;if(input)input.checked=!checked;alert(error.message||"업로드 체크 상태를 저장하지 못했습니다.")}finally{if(input){input.disabled=false;label?.classList.remove("saving")}}}
+    async function toggleUploadSite(index,key,checked,input){
+      const current=saved[index];if(!current)return;
+      const label=input?.closest(".upload-check"),nextState={...uploadState(current),[key]:checked};
+      let updated={...current,uploadSites:nextState,measurements:{...measurementsOf(current),__uploadSites:nextState}};
+      saved[index]=updated;if(input){input.disabled=true;label?.classList.add("saving")}
+      try{
+        if(window.SelectCloud&&SelectCloud.user){
+          updated=await SelectCloud.updateSavedMetadata(current.id,stored=>({__uploadSites:{...(stored.__uploadSites||{}),[key]:checked}}));
+          updated.uploadSites=updated.measurements.__uploadSites;
+        }else saveLocalSavedProduct(updated);
+        const position=saved.findIndex(p=>String(p.id)===String(current.id));if(position>=0)saved[position]=updated;
+        if(detailProduct&&String(detailProduct.id)===String(updated.id))detailProduct=updated;
+      }catch(error){const position=saved.findIndex(p=>String(p.id)===String(current.id));if(position>=0)saved[position]=current;if(input)input.checked=!checked;alert(error.message||"업로드 체크 상태를 저장하지 못했습니다.")}
+      finally{if(input){input.disabled=false;label?.classList.remove("saving")}}
+    }
     function showSavedDetail(index){const p=saved[index];if(!p)return;detailProduct=p;const stored=measurementsOf(p),draft=draftOf(p),rawPrice=draft.price??stored.__price??p.price??0,price=Number(String(rawPrice).replace(/,/g,"")),priceText=Number.isFinite(price)&&price>0?`${price.toLocaleString("ko-KR")}원`:"미입력";$("detailTitle").textContent=[p.brand,p.name].filter(Boolean).join(" ")||"저장 판매글 내용";$("detailBody").innerHTML=`<div class="detail-section" style="border-color:#b9cdf8;background:#f7faff"><h3>당근·후르츠 등록용 판매글</h3><p>${esc(savedText(p))}</p></div>`;$("detailPriceHint").innerHTML=`참고 판매가 <b>${esc(priceText)}</b><span>복사 제외</span>`;$("detailOverlay").classList.remove("hidden")}
     function closeDetail(){detailProduct=null;$("detailOverlay").classList.add("hidden")}
     const measureFieldsByType={상의:[["length","총장"],["shoulder","어깨"],["chest","가슴"],["sleeve","소매"]],아우터:[["length","총장"],["shoulder","어깨"],["chest","가슴"],["sleeve","소매"]],원피스:[["length","총장"],["shoulder","어깨"],["chest","가슴"],["waist","허리"],["sleeve","소매"]],하의:[["length","총장"],["waist","허리"],["hip","엉덩이"],["thigh","허벅지"],["rise","밑위"],["hem","밑단"]],신발:[]};
@@ -111,8 +125,23 @@
     function editDraft(){return{brand:$("editBrand").value.trim(),name:$("editName").value.trim(),productType:$("editType").value,size:$("editSize").value.trim(),condition:$("editCondition").value,price:Number($("editPrice").value||0),description:$("editDescription").value.trim(),instagramCaption:$("editInstagramCaption").value,notice:$("editNotice").value.trim(),measurements:{...editMeasurements}}}
     function composeEditText(d){return composeProductText(d)}
     async function saveEdit(){if(!editProduct)return;const d=editDraft();if(!d.name){$("editStatus").textContent="상품명을 입력해 주세요.";return}const finalText=composeEditText(d),existingUploads=uploadState(editProduct),existingSoldAt=soldAtOf(editProduct),existingMeasurements=measurementsOf(editProduct),existingCode=existingMeasurements.__productCode||editProduct.code||"",existingImage=existingMeasurements.__productImage??editProduct.productImage,snapshot={...d.measurements,__uploadSites:existingUploads,__draft:{...d,finalText},__finalText:finalText,__description:d.description,__notice:d.notice,__instagramCaption:d.instagramCaption,__savedVersion:6};if(existingCode)snapshot.__productCode=existingCode;if(existingImage!==undefined)snapshot.__productImage=existingImage;if(existingSoldAt){snapshot.__soldAt=existingSoldAt;snapshot.__status="sold"}const updated={...editProduct,...d,uploadSites:existingUploads,measurements:snapshot,updatedAt:new Date().toISOString()};if(existingSoldAt)updated.soldAt=existingSoldAt;const button=$("editSave");button.disabled=true;button.textContent="저장 중…";try{if(window.SelectCloud&&SelectCloud.user){await SelectCloud.saveSaved(updated)}else saveLocalSavedProduct(updated);const brands=JSON.parse(localStorage.getItem("select-saved-brands")||"[]");if(d.brand&&!brands.some(b=>String(b).toLowerCase()===d.brand.toLowerCase()))localStorage.setItem("select-saved-brands",JSON.stringify([d.brand,...brands]));$("editStatus").textContent="수정 내용을 저장했습니다.";await loadSaved();setTimeout(closeEdit,350)}catch(error){$("editStatus").textContent=error.message||"저장하지 못했습니다."}finally{button.disabled=false;button.textContent="수정 내용 저장"}}
-    function editSaved(index){showEdit(index)}
-    function openSaved(index){showSavedDetail(index)}
+    const detailRequests=new Map();
+    async function hydrateSaved(id){
+      let product=saved.find(p=>String(p.id)===String(id));if(!product?._summary)return product;
+      if(!detailRequests.has(String(id)))detailRequests.set(String(id),SelectCloud.getSaved(id));
+      try{product=await detailRequests.get(String(id));if(!product)throw new Error("상품 원본을 불러오지 못했습니다.");const position=saved.findIndex(p=>String(p.id)===String(id));if(position>=0)saved[position]=product;return product}
+      finally{detailRequests.delete(String(id))}
+    }
+    async function openProductAction(index,action){
+      const id=saved[index]?.id;if(id==null)return;
+      const button=$("tableBody").querySelector(`[data-saved-${action===showEdit?"edit":"open"}="${index}"]`);
+      if(button){button.disabled=true;button.setAttribute("aria-busy","true")}
+      try{await hydrateSaved(id);const position=saved.findIndex(p=>String(p.id)===String(id));if(position>=0)action(position)}
+      catch(error){alert(error.message||"상품 내용을 불러오지 못했습니다.")}
+      finally{if(button){button.disabled=false;button.removeAttribute("aria-busy")}}
+    }
+    function editSaved(index){return openProductAction(index,showEdit)}
+    function openSaved(index){return openProductAction(index,showSavedDetail)}
     async function removeSaved(id,name){if(!confirm(`‘${name}’ 저장 상품을 삭제할까요?`))return;if(SelectCloud.user)await SelectCloud.deleteSaved(id);else{const next=saved.filter(item=>String(item.id)!==String(id));localStorage.setItem("select-saved-products",JSON.stringify(next))}await loadSaved()}
     function render(){const rows=filtered();const pages=Math.max(1,Math.ceil(rows.length/pageSize));page=Math.min(page,pages);const view=rows.slice((page-1)*pageSize,page*pageSize);$("status").textContent=`판매중 상품 ${rows.length.toLocaleString("ko-KR")}개를 표시합니다. 판매완료 상품은 별도 페이지에 보관됩니다.`;$("tableHead").innerHTML='<tr><th>번호</th><th>상품명</th><th>업로드 확인</th><th>종류</th><th>사이즈</th><th>관리 가격</th><th class="hide-mobile">수정일</th><th class="detail-cell" scope="col">내용</th><th scope="col">관리</th></tr>';$("tableBody").innerHTML=view.map((p,i)=>{const n=(page-1)*pageSize+i+1,savedIndex=saved.indexOf(p),label=esc([p.brand,p.name].filter(Boolean).join(" "));return`<tr><td class="muted">${n}</td><td class="product-name"><button type="button" class="copy-title" data-copy-title title="클릭해서 제목 복사">${label}</button></td><td>${uploadControls(p,savedIndex)}</td><td>${esc(p.productType)}</td><td>${esc(p.size)}</td><td class="money">${Number(p.price||0).toLocaleString("ko-KR")}원</td><td class="muted hide-mobile">${dateText(p.updatedAt)}</td><td class="detail-cell"><div class="actions"><button type="button" data-saved-open="${savedIndex}">내용 보기</button></div></td><td><div class="actions"><button data-saved-edit="${savedIndex}">수정</button><button class="sold" data-saved-sold="${savedIndex}">판매완료</button><button class="delete" data-delete="${p.id}" data-name="${label}">삭제</button></div></td></tr>`}).join("");$("empty").classList.toggle("hidden",view.length>0);$("empty").textContent="판매중 상품이 없습니다. 판매완료 상품은 판매완료 페이지에서 확인할 수 있습니다.";$("tableBody").closest("table").classList.toggle("hidden",view.length===0);$("pageInfo").textContent=`${page} / ${pages}`;$("prev").disabled=page<=1;$("next").disabled=page>=pages;$("tableBody").querySelectorAll("[data-upload-site]").forEach(input=>input.onchange=()=>toggleUploadSite(Number(input.dataset.uploadIndex),input.dataset.uploadSite,input.checked,input));$("tableBody").querySelectorAll("[data-saved-open]").forEach(button=>button.onclick=()=>openSaved(Number(button.dataset.savedOpen)));$("tableBody").querySelectorAll("[data-saved-edit]").forEach(button=>button.onclick=()=>editSaved(Number(button.dataset.savedEdit)));$("tableBody").querySelectorAll("[data-saved-sold]").forEach(button=>button.onclick=()=>markSold(Number(button.dataset.savedSold)));$("tableBody").querySelectorAll("[data-delete]").forEach(button=>button.onclick=()=>removeSaved(button.dataset.delete,button.dataset.name))}
     $("editType").onchange=()=>{document.querySelectorAll("[data-edit-measure]").forEach(input=>editMeasurements[input.dataset.editMeasure]=input.value);renderEditMeasures()};$("editClose").onclick=closeEdit;$("editCancel").onclick=closeEdit;$("editSave").onclick=saveEdit;$("editOverlay").onclick=e=>{if(e.target===$("editOverlay"))closeEdit()};

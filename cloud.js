@@ -4,7 +4,10 @@
   function writeScript(path) {
     document.write('<script src="' + path + '"><\/script>');
   }
-  writeScript(base + "/cloud-core.js?v=5");
+  writeScript(base + "/cloud-core.js?v=6");
   writeScript(base + "/cloud-patches.js?v=6");
-  if (/\/products\/?$/.test(location.pathname)) writeScript("management.js?v=12");
+  if (/\/products\/?$/.test(location.pathname)) {
+    writeScript(base + "/products/photo-cache.js?v=1");
+    writeScript(base + "/products/management.js?v=13");
+  }
 })();

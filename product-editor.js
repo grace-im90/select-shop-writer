@@ -4,10 +4,10 @@
   const TYPES = ['상의', '하의', '아우터', '원피스', '신발'];
   const CONDITIONS = ['', 'S 미사용급', 'A 매우 좋은 상태', 'B+ 좋은 상태', 'B 자연스러운 사용감', 'C 사용감·하자 있음'];
   const text = value => typeof value === 'string' ? value.normalize('NFC').trim() : '';
-  function image(value) {
+  function image(value, stored = false) {
     const src = typeof value === 'string' ? value : value?.src;
     if (value == null || value === '') return null;
-    if (typeof src !== 'string' || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(src) || src.length > 350000) {
+    if (typeof src !== 'string' || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(src) || (!stored && src.length > 350000)) {
       throw new Error('대표사진은 250KB 이하의 JPEG·PNG·WebP 이미지로 준비해 주세요.');
     }
     return { src };
@@ -79,7 +79,7 @@
   function restore(value = {}) {
     revision++;
     pending = false;
-    try { productImage = image(value.productImage); } catch (_) { productImage = null; }
+    try { productImage = image(value.productImage, true); } catch (_) { productImage = null; }
     if (el('instagramCaption')) el('instagramCaption').value = value.instagramCaption || '';
     preview();
   }

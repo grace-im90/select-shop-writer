@@ -16,14 +16,22 @@
   ];
   let activeFilter = localStorage.getItem(FILTER_KEY) || "all";
   if (!filters.some(([key]) => key === activeFilter)) activeFilter = "all";
-  let pendingImageIndex = null;
-  let imageModalIndex = null;
+  let pendingImageId = null;
+  let imageModalId = null;
   let imageModalPreviousFocus = null;
   let enhancing = false;
   let savingCodes = false;
   const pendingCodeSaves = new Map();
   const pendingImageLoads = new Set();
-  const loadedImageIds = new Set();
+  const imageCache = new Map();
+  const imageQueue = new Map();
+  const imagePresence = new Map();
+  let activeImageBatches = 0;
+  let imageOwner = "";
+  let imageGeneration = 0;
+  let imageObserver = null;
+  let presenceRequest = null;
+  let presenceReady = false;
   const failedImageIds = new Set();
 
   function safeEsc(value) {
@@ -66,15 +74,25 @@
   }
 
   function productImage(product) {
-    let source = product?.productImage;
-    if (source === undefined) source = safeMeasurements(product).__productImage;
+    if (safeMeasurements(product).__productImageDeletedAt) return null;
+    const direct = window.SelectCloud?.productImage?.(product);
+    if (direct) return direct;
+    let source = safeMeasurements(product).__productImage ?? product?.productImage ?? safeMeasurements(product).__draft?.productImage;
+    if (typeof source === "string" && source.trim().startsWith("{")) {
+      try { source = JSON.parse(source); } catch (_error) { source = null; }
+    }
     if (typeof source === "string" && source.trim()) return { src: source };
     if (source && typeof source === "object" && source.src) return source;
-    return null;
+    return imageCache.get(String(product?.id))?.image || null;
+  }
+
+  function imageKnown(product) {
+    const id = String(product.id);
+    return imagePresence.has(id) || imageCache.has(id) || !window.SelectCloud?.user;
   }
 
   function hasProductImage(product) {
-    return Boolean(productImage(product));
+    return Boolean(productImage(product)) || imagePresence.get(String(product.id)) === true;
   }
 
   function productCode(product) {
@@ -109,7 +127,7 @@
     if (key === "carrotMissing") return !state.carrot;
     if (key === "bunjangMissing") return !state.bunjang;
     if (key === "fruitsMissing") return !state.fruits;
-    if (key === "noImage") return !hasProductImage(product);
+    if (key === "noImage") return imageKnown(product) && !hasProductImage(product);
     return true;
   }
 
@@ -136,7 +154,6 @@
       ".shot-thumb img{display:block;width:100%;height:100%;object-fit:cover}",
       ".shot-loading{display:flex;align-items:center;justify-content:center;width:44px;height:56px;border:1px solid #d6dee8;border-radius:8px;background:#f4f7fb;color:#8a95a5;font-size:8px}",
       ".shot-add{height:31px;padding:0 10px;border:1px dashed #b7c4d8;border-radius:8px;background:#f8faff;color:#526075;font-size:9px;font-weight:800}",
-      ".shot-add{height:31px;padding:0 10px;border:1px dashed #b7c4d8;border-radius:8px;background:#f8faff;color:#526075;font-size:9px;font-weight:800}",
       ".product-image-modal[hidden]{display:none}",
       ".product-image-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.76);backdrop-filter:blur(3px)}",
       ".product-image-dialog{width:min(720px,100%);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.35)}",
@@ -155,7 +172,7 @@
       ".status-pill.partial{background:#eef6ff;color:#2563eb}",
       ".status-pill.done{background:#ecfdf5;color:#05845f}",
       ".product-status small{color:#8a95a5;font-size:8.5px}",
-      "@media(max-width:760px){.status-filters{padding:0 10px 11px}.product-shot-cell{min-width:84px}.product-code-cell{min-width:48px}.shot-thumb{width:38px;height:48px}.status-pill{height:23px;padding:0 7px}.product-image-modal{padding:10px}.product-image-dialog{max-height:96vh;border-radius:13px}.product-image-stage{min-height:220px;padding:10px}.product-image-stage img{max-height:74vh}.product-image-actions{padding:12px}.product-image-actions button{height:42px}}}"
+      "@media(max-width:760px){.status-filters{padding:0 10px 11px}.product-shot-cell{min-width:84px}.product-code-cell{min-width:48px}.shot-thumb{width:38px;height:48px}.status-pill{height:23px;padding:0 7px}.product-image-modal{padding:10px}.product-image-dialog{max-height:96vh;border-radius:13px}.product-image-stage{min-height:220px;padding:10px}.product-image-stage img{max-height:74vh}.product-image-actions{padding:12px}.product-image-actions button{height:42px}}"
     ].join("");
     document.head.appendChild(style);
   }
@@ -170,10 +187,10 @@
     input.className = "hidden";
     input.onchange = async () => {
       const file = input.files?.[0];
-      const index = pendingImageIndex;
-      pendingImageIndex = null;
+      const index = saved.findIndex(product => String(product.id) === String(pendingImageId));
+      pendingImageId = null;
       input.value = "";
-      if (file && Number.isFinite(index)) await updateProductImage(index, file);
+      if (file && Number.isFinite(index) && index >= 0) await updateProductImage(index, file);
     };
     document.body.appendChild(input);
     return input;
@@ -184,7 +201,7 @@
     if (!modal || modal.hidden) return;
     modal.hidden = true;
     document.body.classList.remove("product-image-modal-open");
-    imageModalIndex = null;
+    imageModalId = null;
     imageModalPreviousFocus?.focus?.({ preventScroll: true });
     imageModalPreviousFocus = null;
   }
@@ -217,10 +234,10 @@
         closeImageModal();
         return;
       }
-      const index = imageModalIndex;
-      if (!Number.isFinite(index)) return;
+      const index = saved.findIndex(product => String(product.id) === String(imageModalId));
+      if (!Number.isFinite(index) || index < 0) return;
       if (action === "replace") {
-        pendingImageIndex = index;
+        pendingImageId = saved[index]?.id;
         closeImageModal();
         ensureImageInput().click();
       } else if (action === "remove") {
@@ -245,7 +262,7 @@
     const title = [product?.brand, product?.name].filter(Boolean).join(" ").trim() || "제품 사진";
     modal.querySelector("#productImageModalTitle").textContent = title;
     modal.querySelector("#productImageModalPreview").src = image.src;
-    imageModalIndex = index;
+    imageModalId = product.id;
     imageModalPreviousFocus = document.activeElement;
     modal.hidden = false;
     document.body.classList.add("product-image-modal-open");
@@ -267,7 +284,7 @@
     if (!isSavedMode) return;
     const source = activeSavedProducts();
     bar.innerHTML = filters.map(([key, label]) => {
-      const count = source.filter(product => matchesFilter(product, key)).length;
+      const count = key === "noImage" && !presenceReady && window.SelectCloud?.user ? "확인 중" : source.filter(product => matchesFilter(product, key)).length;
       return `<button type="button" class="${activeFilter === key ? "on" : ""}" data-product-filter="${key}">${label} ${count}</button>`;
     }).join("");
     bar.querySelectorAll("[data-product-filter]").forEach(button => {
@@ -291,12 +308,12 @@
     if (!image) {
       if (pendingImageLoads.has(id)) return `<div class="product-shot"><span class="shot-loading">불러오는 중</span></div>`;
       if (failedImageIds.has(id)) return `<div class="product-shot"><button type="button" class="shot-add" data-image-action="retry" data-image-index="${index}">다시 불러오기</button></div>`;
-      if (window.SelectCloud?.user && !loadedImageIds.has(id)) return `<div class="product-shot"><span class="shot-loading">불러오는 중</span></div>`;
+      if (window.SelectCloud?.user && !imageCache.has(id) && imagePresence.get(id) !== false) return `<div class="product-shot"><button type="button" class="shot-add" data-image-action="load" data-image-index="${index}">사진 보기</button></div>`;
       return `<div class="product-shot"><button type="button" class="shot-add" data-image-action="choose" data-image-index="${index}">사진 추가</button></div>`;
     }
     return [
       '<div class="product-shot">',
-      `<button type="button" class="shot-thumb" data-image-action="preview" data-image-index="${index}" title="사진 크게 보기" aria-label="제품 사진 크게 보기"><img src="${safeEsc(image.src)}" alt="대표 제품 사진"></button>`,
+      `<button type="button" class="shot-thumb" data-image-action="preview" data-image-index="${index}" title="사진 크게 보기" aria-label="제품 사진 크게 보기"><img src="${safeEsc(image.src)}" alt="대표 제품 사진" loading="lazy" decoding="async" width="44" height="56"></button>`,
       "</div>"
     ].join("");
   }
@@ -308,17 +325,17 @@
       const button = event.target.closest("[data-image-action]");
       if (!button) return;
       const index = Number(button.dataset.imageIndex);
-      if (!Number.isFinite(index)) return;
+      if (!Number.isFinite(index) || index < 0) return;
       if (button.dataset.imageAction === "preview") {
         openImageModal(index);
-      } else if (button.dataset.imageAction === "retry") {
+      } else if (["retry", "load"].includes(button.dataset.imageAction)) {
         const product = saved[index];
         if (!product) return;
         const id = String(product.id);
         failedImageIds.delete(id);
         loadVisibleProductImages([index]);
       } else {
-        pendingImageIndex = index;
+        pendingImageId = saved[index]?.id;
         ensureImageInput().click();
       }
     });
@@ -370,7 +387,9 @@
         shotCell.dataset.productShotCell = "";
         tableRow.children[0]?.after(shotCell);
       }
-      shotCell.innerHTML = shotMarkup(product, index);
+      tableRow.dataset.productId = String(product.id);
+      const markup = shotMarkup(product, index);
+      if (shotCell.innerHTML !== markup) shotCell.innerHTML = markup;
       let codeCell = tableRow.querySelector("[data-product-code-cell]");
       if (!codeCell) {
         codeCell = document.createElement("td");
@@ -431,40 +450,115 @@
       }
       statusCell.innerHTML = statusMarkup(product);
     });
-    loadVisibleProductImages();
+    observePhotoRows();
   }
 
-  async function loadVisibleProductImages(indexes = null) {
-    if (!window.SelectCloud?.user || typeof SelectCloud.listSavedImages !== "function") return;
-    const body = document.getElementById("tableBody");
-    if (!body || typeof saved === "undefined") return;
-    const candidates = Array.isArray(indexes)
-      ? indexes.map(index => saved[index])
-      : [...body.querySelectorAll("[data-saved-edit]")].map(button => saved[Number(button.dataset.savedEdit)]);
-    const requested = candidates.filter(product => product && !loadedImageIds.has(String(product.id)) && !pendingImageLoads.has(String(product.id)) && !failedImageIds.has(String(product.id)));
-    if (!requested.length) return;
-    requested.forEach(product => pendingImageLoads.add(String(product.id)));
-    try {
-      const images = await SelectCloud.listSavedImages(requested.map(product => product.id));
-      const byId = new Map(images.map(item => [String(item.id), item.productImage]));
-      requested.forEach(product => {
-        const id = String(product.id);
-        loadedImageIds.add(id);
-        failedImageIds.delete(id);
-        const index = saved.findIndex(item => String(item.id) === id);
-        if (index < 0) return;
-        const image = byId.get(id);
-        const measurements = { ...safeMeasurements(saved[index]) };
-        if (image) measurements.__productImage = image;
-        else delete measurements.__productImage;
-        saved[index] = { ...saved[index], productImage: image || null, measurements };
-      });
-    } catch (_error) {
-      requested.forEach(product => failedImageIds.add(String(product.id)));
-    } finally {
-      requested.forEach(product => pendingImageLoads.delete(String(product.id)));
+  function refreshPhotoCells() {
+    document.querySelectorAll("#tableBody tr[data-product-id]").forEach(row => {
+      const index = saved.findIndex(product => String(product.id) === row.dataset.productId);
+      const cell = row.querySelector("[data-product-shot-cell]");
+      if (index < 0 || !cell) return;
+      const markup = shotMarkup(saved[index], index);
+      if (cell.innerHTML !== markup) cell.innerHTML = markup;
+    });
+  }
+
+  function observePhotoRows() {
+    imageObserver?.disconnect();
+    if (!window.SelectCloud?.user) return;
+    const rows = [...document.querySelectorAll("#tableBody tr[data-product-id]")];
+    if ("IntersectionObserver" in window) {
+      imageObserver ||= new IntersectionObserver(entries => {
+        const indexes = entries.filter(entry => entry.isIntersecting).map(entry => {
+          imageObserver.unobserve(entry.target);
+          return saved.findIndex(product => String(product.id) === entry.target.dataset.productId);
+        });
+        loadVisibleProductImages(indexes);
+      }, { rootMargin: "240px 0px" });
+      rows.forEach(row => imageObserver.observe(row));
+    } else {
+      loadVisibleProductImages(rows.map(row => saved.findIndex(product => String(product.id) === row.dataset.productId)));
     }
-    enhanceTable();
+  }
+
+  function loadVisibleProductImages(indexes = []) {
+    if (!window.SelectCloud?.user || typeof SelectCloud.listSavedImages !== "function") return;
+    indexes.map(index => saved[index]).filter(Boolean).forEach(product => {
+      const id = String(product.id), version = product.updatedAt || "";
+      if (imagePresence.get(id) === false || imageCache.get(id)?.version === version || failedImageIds.has(id) || pendingImageLoads.has(id)) return;
+      imageQueue.set(id, { id, version });
+    });
+    pumpImages();
+  }
+
+  function rememberPhoto(id, version, image) {
+    const entry = { version, image };
+    imageCache.set(id, entry);
+    imagePresence.set(id, Boolean(image));
+    window.SelectPhotoCache?.write(imageOwner, id, entry);
+  }
+
+  async function pumpImages() {
+    if (activeImageBatches >= 2 || !imageQueue.size) return;
+    const requested = [...imageQueue.values()].slice(0, 4);
+    const generation = imageGeneration, owner = imageOwner;
+    requested.forEach(item => { imageQueue.delete(item.id); pendingImageLoads.add(item.id); });
+    activeImageBatches++;
+    refreshPhotoCells();
+    pumpImages();
+    try {
+      const uncached = [];
+      for (const item of requested) {
+        const cached = await window.SelectPhotoCache?.read(owner, item.id);
+        if (generation !== imageGeneration) return;
+        if (cached && (!imageCache.has(item.id) || cached.version === item.version)) imageCache.set(item.id, cached);
+        if (cached?.version === item.version) imagePresence.set(item.id, Boolean(cached.image));
+        else uncached.push(item);
+      }
+      refreshPhotoCells();
+      if (uncached.length) {
+        const images = await SelectCloud.listSavedImages(uncached.map(item => item.id));
+        if (generation !== imageGeneration) return;
+        const byId = new Map(images.map(item => [String(item.id), item.productImage]));
+        uncached.forEach(item => {
+          const current = saved.find(product => String(product.id) === item.id);
+          if (!current || (current.updatedAt || "") !== item.version) return;
+          if (!byId.has(item.id)) { failedImageIds.add(item.id); return; }
+          rememberPhoto(item.id, item.version, byId.get(item.id));
+          failedImageIds.delete(item.id);
+        });
+      }
+    } catch (_error) {
+      if (generation === imageGeneration) requested.forEach(item => failedImageIds.add(item.id));
+    } finally {
+      if (generation === imageGeneration) requested.forEach(item => pendingImageLoads.delete(item.id));
+      activeImageBatches--;
+      refreshPhotoCells();
+      ensureFilterBar();
+      pumpImages();
+      // Revisit rows if a sync replaced the summary while their old requests were pending.
+      if (generation === imageGeneration) observePhotoRows();
+    }
+  }
+
+  async function loadImagePresence() {
+    if (!window.SelectCloud?.user || !SelectCloud.listSavedImageIds || presenceRequest) return;
+    const generation = imageGeneration;
+    presenceRequest = SelectCloud.listSavedImageIds();
+    try {
+      const ids = new Set(await presenceRequest);
+      if (generation !== imageGeneration) return;
+      saved.forEach(product => {
+        const id = String(product.id);
+        imagePresence.set(id, !safeMeasurements(product).__productImageDeletedAt && ids.has(id));
+      });
+      presenceReady = true;
+      ensureFilterBar();
+      if (activeFilter === "noImage") render();
+      else refreshPhotoCells();
+    } catch (_error) {
+      // Unknown photos are never counted as missing after a failed request.
+    } finally { if (generation === imageGeneration) presenceRequest = null; }
   }
 
   async function flushProductCodeSaves() {
@@ -476,7 +570,7 @@
         const [id, product] = pendingCodeSaves.entries().next().value;
         pendingCodeSaves.delete(id);
         try {
-          if (window.SelectCloud && SelectCloud.user) await SelectCloud.saveSaved(product);
+          if (window.SelectCloud && SelectCloud.user) await SelectCloud.updateSavedMetadata(product.id, { __productCode: productCode(product) });
           else if (typeof saveLocalSavedProduct === "function") saveLocalSavedProduct(product);
         } catch (_error) {
           failed = true;
@@ -575,32 +669,15 @@
   }
 
   function compressedImageSrc(image) {
-    const maxBytes = 45 * 1024;
-    const profiles = [
-      { maxWidth: 360, maxHeight: 480 },
-      { maxWidth: 300, maxHeight: 400 },
-      { maxWidth: 240, maxHeight: 320 }
-    ];
-    const formats = [
-      ["image/webp", [0.58, 0.48, 0.38]],
-      ["image/jpeg", [0.62, 0.52, 0.42]]
-    ];
-    let smallest = "";
-    let bestUnderLimit = "";
-    profiles.forEach(profile => {
-      const canvas = resizeToCanvas(image, profile.maxWidth, profile.maxHeight);
-      formats.forEach(([type, qualities]) => {
-        qualities.forEach(quality => {
-          const src = canvas.toDataURL(type, quality);
-          if (!src.startsWith(`data:${type}`)) return;
-          if (!smallest || imageDataBytes(src) < imageDataBytes(smallest)) smallest = src;
-          if (imageDataBytes(src) <= maxBytes && (!bestUnderLimit || imageDataBytes(src) < imageDataBytes(bestUnderLimit))) {
-            bestUnderLimit = src;
-          }
-        });
-      });
-    });
-    return bestUnderLimit || smallest;
+    const maxBytes = 150 * 1024;
+    for (const maxWidth of [720, 540, 360]) {
+      const canvas = resizeToCanvas(image, maxWidth, maxWidth);
+      for (const quality of [0.78, 0.62, 0.45]) {
+        const src = canvas.toDataURL("image/jpeg", quality);
+        if (imageDataBytes(src) <= maxBytes) return src;
+      }
+    }
+    throw new Error("사진 용량을 줄이지 못했습니다. 다른 사진을 선택해 주세요.");
   }
 
   async function imageMetaFromFile(file) {
@@ -627,23 +704,27 @@
     };
   }
 
-  async function saveProductImage(index, image) {
+  async function saveProductImage(id, image) {
+    const index = saved.findIndex(product => String(product.id) === String(id));
     const previous = saved[index];
     if (!previous) return;
-    const updated = withProductImage(previous, image);
-    saved[index] = updated;
-    try {
-      if (window.SelectCloud && SelectCloud.user) await SelectCloud.saveSaved(updated);
-      else if (typeof saveLocalSavedProduct === "function") saveLocalSavedProduct(updated);
-      await loadSaved();
-    } catch (error) {
-      saved[index] = previous;
-      render();
-      throw error;
-    }
+    const patch = { __productImage: image, __productImageDeletedAt: image ? null : new Date().toISOString() };
+    let updated = withProductImage(previous, image);
+    updated.measurements = { ...updated.measurements, ...patch };
+    if (window.SelectCloud?.user) updated = await SelectCloud.updateSavedMetadata(id, patch);
+    else saveLocalSavedProduct(updated);
+    const currentIndex = saved.findIndex(product => String(product.id) === String(id));
+    if (currentIndex >= 0) saved[currentIndex] = updated;
+    failedImageIds.delete(String(id));
+    rememberPhoto(String(id), updated.updatedAt || "", image);
+    refreshPhotoCells();
+    ensureFilterBar();
+    if (activeFilter === "noImage") render();
   }
 
   async function updateProductImage(index, file) {
+    const id = saved[index]?.id;
+    if (id == null) return;
     const buttons = document.querySelectorAll(`[data-image-index="${index}"]`);
     buttons.forEach(button => {
       button.disabled = true;
@@ -651,7 +732,7 @@
       if (button.classList.contains("shot-add")) button.textContent = "저장 중...";
     });
     try {
-      await saveProductImage(index, await imageMetaFromFile(file));
+      await saveProductImage(id, await imageMetaFromFile(file));
     } catch (error) {
       alert(error.message || "대표컷을 저장하지 못했습니다.");
     } finally {
@@ -665,7 +746,7 @@
   async function removeProductImage(index) {
     if (!confirm("대표컷을 삭제할까요?")) return false;
     try {
-      await saveProductImage(index, null);
+      await saveProductImage(saved[index]?.id, null);
       return true;
     } catch (error) {
       alert(error.message || "대표컷을 삭제하지 못했습니다.");
@@ -679,9 +760,22 @@
     const baseRender = render;
     const baseLoadSaved = loadSaved;
     loadSaved = async function () {
-      loadedImageIds.clear();
+      await SelectCloud.ready();
+      const owner = SelectCloud.user?.id || "local";
+      if (imageOwner !== owner) {
+        imageGeneration++;
+        imageOwner = owner;
+        imageCache.clear();
+        imagePresence.clear();
+        pendingImageLoads.clear();
+        imageQueue.clear();
+        presenceRequest = null;
+        presenceReady = false;
+      }
       failedImageIds.clear();
-      return baseLoadSaved.apply(this, arguments);
+      const result = await baseLoadSaved.apply(this, arguments);
+      loadImagePresence();
+      return result;
     };
     filtered = function () {
       const rows = baseFiltered();
@@ -706,7 +800,9 @@
         return result;
       };
     }
+    imageOwner = SelectCloud.user?.id || "local";
     render();
+    loadImagePresence();
     return true;
   }
 

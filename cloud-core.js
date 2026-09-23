@@ -7,13 +7,45 @@
   const readyPromise = new Promise(resolve => { readyResolve = resolve; });
   const listeners = [];
   let initialized = false;
+  const savingById = new Map();
+  const indexRequests = new Map();
 
   function normalizeMeasurements(value) {
     if (!value) return {};
     if (typeof value === "string") {
-      try { return JSON.parse(value); } catch (_error) { return {}; }
+      try { const parsed = JSON.parse(value); return parsed && typeof parsed === "object" ? parsed : {}; } catch (_error) { return {}; }
     }
     return typeof value === "object" ? value : {};
+  }
+
+  function productImage(product) {
+    const stored = normalizeMeasurements(product?.measurements);
+    if (stored.__productImageDeletedAt) return null;
+    const candidates = [stored.__productImage, product?.productImage, stored.__draft?.productImage];
+    for (let value of candidates) {
+      if (typeof value === "string" && value.trim().startsWith("{")) {
+        try { value = JSON.parse(value); } catch (_error) { continue; }
+      }
+      const src = typeof value === "string" ? value : value?.src;
+      if (typeof src === "string" && /^(data:image\/(?:jpeg|jpg|png|webp|gif);base64,|https:\/\/)/i.test(src)) {
+        return { ...(typeof value === "object" ? value : {}), src };
+      }
+    }
+    return null;
+  }
+
+  async function requestWithTimeout(query) {
+    const controller = new AbortController();
+    let timer;
+    try {
+      return await Promise.race([
+        typeof query.abortSignal === "function" ? query.abortSignal(controller.signal) : query,
+        new Promise((_, reject) => { timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error("사진 요청 시간이 초과되었습니다. 다시 불러오기를 눌러 주세요."));
+        }, 15000); })
+      ]);
+    } finally { clearTimeout(timer); }
   }
 
   function savedFromRow(row) {
@@ -148,9 +180,29 @@
     updateAuthUI();
   }
 
-  async function listSaved() {
+  async function listSaved(options = {}) {
     await readyPromise;
     if (!currentUser) return null;
+    if (options.summary) {
+      const owner = currentUser.id;
+      if (indexRequests.has(owner)) return indexRequests.get(owner);
+      const request = (async () => {
+        const keys = ["__productCode", "__uploadSites", "__soldAt", "__status", "__productImageDeletedAt"];
+        const selection = ["id", "brand", "name", "product_type", "size", "condition", "price", "created_at", "updated_at",
+          ...keys.map(key => `m_${key.slice(2)}:measurements->${key}`)].join(",");
+        const { data, error } = await client.from("saved_products").select(selection).order("created_at", { ascending: false }).order("id", { ascending: false });
+        if (error) throw error;
+        return data.map(row => {
+          const measurements = {};
+          keys.forEach(key => { if (row[`m_${key.slice(2)}`] != null) measurements[key] = row[`m_${key.slice(2)}`]; });
+          return { id: row.id, brand: row.brand, name: row.name, productType: row.product_type,
+            size: row.size, condition: row.condition, price: row.price, createdAt: row.created_at,
+            updatedAt: row.updated_at, measurements, _summary: true };
+        });
+      })();
+      indexRequests.set(owner, request);
+      try { return await request; } finally { if (indexRequests.get(owner) === request) indexRequests.delete(owner); }
+    }
     const { data, error } = await client.from("saved_products").select(savedIndexSelect).order("updated_at", { ascending: false });
     if (error) throw error;
     return data.map(savedIndexFromRow);
@@ -162,19 +214,28 @@
     const batches = [];
     for (let index = 0; index < ids.length; index += 8) batches.push(ids.slice(index, index + 8));
     const results = await Promise.all(batches.map(async batch => {
-      const { data, error } = await client.from("saved_products")
+      const { data, error } = await requestWithTimeout(client.from("saved_products")
         .select("id,measurements")
-        .in("id", batch);
+        .in("id", batch));
       if (error) throw error;
       return data.map(row => {
         let measurements = row.measurements;
         if (typeof measurements === "string") {
           try { measurements = JSON.parse(measurements); } catch (_error) { measurements = {}; }
         }
-        return { id: row.id, productImage: measurements?.__productImage ?? null };
+        return { id: row.id, productImage: productImage({ measurements }) };
       });
     }));
     return results.flat();
+  }
+
+  async function listSavedImageIds() {
+    await readyPromise;
+    if (!currentUser) return [];
+    const { data, error } = await requestWithTimeout(client.from("saved_products").select("id")
+      .or("measurements->>__productImage.not.is.null,measurements->__draft->>productImage.not.is.null"));
+    if (error) throw error;
+    return data.map(row => String(row.id));
   }
 
   async function getSaved(id) {
@@ -185,17 +246,49 @@
     return savedFromRow(data);
   }
 
-  async function saveSaved(product) {
+  function serializeSave(id, action) {
+    const previous = savingById.get(String(id)) || Promise.resolve();
+    const next = previous.catch(() => {}).then(action);
+    savingById.set(String(id), next);
+    const cleanup = () => { if (savingById.get(String(id)) === next) savingById.delete(String(id)); };
+    next.then(cleanup, cleanup);
+    return next;
+  }
+
+  function saveSaved(product) {
+    return serializeSave(product.id, () => saveSavedNow(product));
+  }
+
+  async function updateSavedMetadata(id, changes) {
+    return serializeSave(id, async () => {
+      const existing = await getSaved(id);
+      if (!existing) throw new Error("상품 원본을 확인하지 못해 저장을 중단했습니다.");
+      const patch = typeof changes === "function" ? changes(existing.measurements) : changes;
+      return saveSavedNow({ ...existing, measurements: { ...existing.measurements, ...patch } }, existing);
+    });
+  }
+
+  async function saveSavedNow(product, original = null) {
     await readyPromise;
     if (!currentUser) return null;
-    const measurements = { ...normalizeMeasurements(product.measurements) };
-    if (product.id && !measurements.__uploadSites) {
-      try {
-        const { data } = await client.from("saved_products").select("measurements").eq("id", product.id).maybeSingle();
-        const existingUploads = normalizeMeasurements(data?.measurements).__uploadSites;
-        if (existingUploads) measurements.__uploadSites = existingUploads;
-      } catch (_error) {}
+    const isExisting = product.id && String(product.id).length < 13;
+    const existing = original || (isExisting ? await getSaved(product.id) : null);
+    const incoming = normalizeMeasurements(product.measurements);
+    const stored = normalizeMeasurements(existing?.measurements);
+    const measurements = product._summary ? { ...stored, ...incoming } : { ...incoming };
+    for (const key of ["__productImage", "__productCode", "__uploadSites", "__instagramCaption", "__productImageDeletedAt"]) {
+      if (!Object.prototype.hasOwnProperty.call(incoming, key) && Object.prototype.hasOwnProperty.call(stored, key)) measurements[key] = stored[key];
     }
+    // A missing image in a summary is not an instruction to delete the original.
+    if (Object.prototype.hasOwnProperty.call(incoming, "__productImage")) {
+      if (incoming.__productImage === null) {
+        measurements.__productImageDeletedAt = new Date().toISOString();
+        if (measurements.__draft) measurements.__draft = { ...measurements.__draft, productImage: null };
+      } else if (productImage({ measurements: { __productImage: incoming.__productImage } })) {
+        delete measurements.__productImageDeletedAt;
+      }
+    }
+    product = { ...existing, ...product };
     const payload = {
       brand: product.brand,
       name: product.name,
@@ -208,7 +301,7 @@
       updated_at: new Date().toISOString()
     };
     let query;
-    if (product.id && String(product.id).length < 13) {
+    if (isExisting) {
       query = client.from("saved_products").update(payload).eq("id", product.id).select().single();
     } else {
       query = client.from("saved_products").insert(payload).select().single();
@@ -447,14 +540,18 @@
   }
 
   window.SelectCloud = {
+    __productMetadataPatch: true,
     client,
     ready: () => readyPromise,
     get user() { return currentUser; },
     bindAuth,
     listSaved,
     listSavedImages,
+    listSavedImageIds,
+    productImage,
     getSaved,
     saveSaved,
+    updateSavedMetadata,
     deleteSaved,
     listCatalog,
     syncCatalog,
