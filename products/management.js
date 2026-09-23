@@ -24,6 +24,7 @@
   const pendingCodeSaves = new Map();
   const pendingImageLoads = new Set();
   const loadedImageIds = new Set();
+  const failedImageIds = new Set();
 
   function safeEsc(value) {
     if (typeof esc === "function") return esc(value);
@@ -134,6 +135,7 @@
       ".shot-thumb{width:44px;height:56px;overflow:hidden;border:1px solid #d6dee8;border-radius:8px;background:#f4f7fb;padding:0}",
       ".shot-thumb img{display:block;width:100%;height:100%;object-fit:cover}",
       ".shot-loading{display:flex;align-items:center;justify-content:center;width:44px;height:56px;border:1px solid #d6dee8;border-radius:8px;background:#f4f7fb;color:#8a95a5;font-size:8px}",
+      ".shot-add{height:31px;padding:0 10px;border:1px dashed #b7c4d8;border-radius:8px;background:#f8faff;color:#526075;font-size:9px;font-weight:800}",
       ".shot-add{height:31px;padding:0 10px;border:1px dashed #b7c4d8;border-radius:8px;background:#f8faff;color:#526075;font-size:9px;font-weight:800}",
       ".product-image-modal[hidden]{display:none}",
       ".product-image-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.76);backdrop-filter:blur(3px)}",
@@ -285,8 +287,11 @@
 
   function shotMarkup(product, index) {
     const image = productImage(product);
+    const id = String(product.id);
     if (!image) {
-      if (window.SelectCloud?.user && !loadedImageIds.has(String(product.id))) return `<div class="product-shot"><span class="shot-loading">불러오는 중</span></div>`;
+      if (pendingImageLoads.has(id)) return `<div class="product-shot"><span class="shot-loading">불러오는 중</span></div>`;
+      if (failedImageIds.has(id)) return `<div class="product-shot"><button type="button" class="shot-add" data-image-action="retry" data-image-index="${index}">다시 불러오기</button></div>`;
+      if (window.SelectCloud?.user && !loadedImageIds.has(id)) return `<div class="product-shot"><span class="shot-loading">불러오는 중</span></div>`;
       return `<div class="product-shot"><button type="button" class="shot-add" data-image-action="choose" data-image-index="${index}">사진 추가</button></div>`;
     }
     return [
@@ -306,6 +311,12 @@
       if (!Number.isFinite(index)) return;
       if (button.dataset.imageAction === "preview") {
         openImageModal(index);
+      } else if (button.dataset.imageAction === "retry") {
+        const product = saved[index];
+        if (!product) return;
+        const id = String(product.id);
+        failedImageIds.delete(id);
+        loadVisibleProductImages([index]);
       } else {
         pendingImageIndex = index;
         ensureImageInput().click();
@@ -423,13 +434,14 @@
     loadVisibleProductImages();
   }
 
-  async function loadVisibleProductImages() {
+  async function loadVisibleProductImages(indexes = null) {
     if (!window.SelectCloud?.user || typeof SelectCloud.loadSavedImages !== "function") return;
     const body = document.getElementById("tableBody");
     if (!body || typeof saved === "undefined") return;
-    const requested = [...body.querySelectorAll("[data-saved-edit]")]
-      .map(button => saved[Number(button.dataset.savedEdit)])
-      .filter(product => product && !loadedImageIds.has(String(product.id)) && !pendingImageLoads.has(String(product.id)));
+    const candidates = Array.isArray(indexes)
+      ? indexes.map(index => saved[index])
+      : [...body.querySelectorAll("[data-saved-edit]")].map(button => saved[Number(button.dataset.savedEdit)]);
+    const requested = candidates.filter(product => product && !loadedImageIds.has(String(product.id)) && !pendingImageLoads.has(String(product.id)));
     if (!requested.length) return;
     requested.forEach(product => pendingImageLoads.add(String(product.id)));
     try {
@@ -438,6 +450,7 @@
       requested.forEach(product => {
         const id = String(product.id);
         loadedImageIds.add(id);
+        failedImageIds.delete(id);
         const index = saved.findIndex(item => String(item.id) === id);
         if (index < 0) return;
         const image = byId.get(id);
@@ -446,12 +459,12 @@
         else delete measurements.__productImage;
         saved[index] = { ...saved[index], productImage: image || null, measurements };
       });
-      enhanceTable();
     } catch (_error) {
-      // Leave unloaded rows retryable on the next page render.
+      requested.forEach(product => failedImageIds.add(String(product.id)));
     } finally {
       requested.forEach(product => pendingImageLoads.delete(String(product.id)));
     }
+    enhanceTable();
   }
 
   async function flushProductCodeSaves() {
@@ -667,6 +680,7 @@
     const baseLoadSaved = loadSaved;
     loadSaved = async function () {
       loadedImageIds.clear();
+      failedImageIds.clear();
       return baseLoadSaved.apply(this, arguments);
     };
     filtered = function () {

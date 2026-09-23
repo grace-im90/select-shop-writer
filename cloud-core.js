@@ -159,11 +159,22 @@
   async function listSavedImages(ids) {
     await readyPromise;
     if (!currentUser || !Array.isArray(ids) || ids.length === 0) return [];
-    const { data, error } = await client.from("saved_products")
-      .select("id,productImage:measurements->__productImage")
-      .in("id", ids);
-    if (error) throw error;
-    return data.map(row => ({ id: row.id, productImage: row.productImage ?? null }));
+    const batches = [];
+    for (let index = 0; index < ids.length; index += 8) batches.push(ids.slice(index, index + 8));
+    const results = await Promise.all(batches.map(async batch => {
+      const { data, error } = await client.from("saved_products")
+        .select("id,measurements")
+        .in("id", batch);
+      if (error) throw error;
+      return data.map(row => {
+        let measurements = row.measurements;
+        if (typeof measurements === "string") {
+          try { measurements = JSON.parse(measurements); } catch (_error) { measurements = {}; }
+        }
+        return { id: row.id, productImage: measurements?.__productImage ?? null };
+      });
+    }));
+    return results.flat();
   }
 
   async function getSaved(id) {
