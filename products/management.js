@@ -441,7 +441,7 @@
     const candidates = Array.isArray(indexes)
       ? indexes.map(index => saved[index])
       : [...body.querySelectorAll("[data-saved-edit]")].map(button => saved[Number(button.dataset.savedEdit)]);
-    const requested = candidates.filter(product => product && !loadedImageIds.has(String(product.id)) && !pendingImageLoads.has(String(product.id)));
+    const requested = candidates.filter(product => product && !loadedImageIds.has(String(product.id)) && !pendingImageLoads.has(String(product.id)) && !failedImageIds.has(String(product.id)));
     if (!requested.length) return;
     requested.forEach(product => pendingImageLoads.add(String(product.id)));
     try {
