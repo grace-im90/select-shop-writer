@@ -435,7 +435,7 @@
   }
 
   async function loadVisibleProductImages(indexes = null) {
-    if (!window.SelectCloud?.user || typeof SelectCloud.loadSavedImages !== "function") return;
+    if (!window.SelectCloud?.user || typeof SelectCloud.listSavedImages !== "function") return;
     const body = document.getElementById("tableBody");
     if (!body || typeof saved === "undefined") return;
     const candidates = Array.isArray(indexes)
@@ -445,7 +445,7 @@
     if (!requested.length) return;
     requested.forEach(product => pendingImageLoads.add(String(product.id)));
     try {
-      const images = await SelectCloud.loadSavedImages(requested.map(product => product.id));
+      const images = await SelectCloud.listSavedImages(requested.map(product => product.id));
       const byId = new Map(images.map(item => [String(item.id), item.productImage]));
       requested.forEach(product => {
         const id = String(product.id);
