@@ -205,6 +205,8 @@ test('old sold and active duplicates keep their numbers while missing codes are 
 test('location selection saves immediately and survives reload, edits, photo replacement, sale and restore',async()=>{
   const a=harness([fixture(1)]);await until(()=>a.images().length===1);
   const control=()=>a.w.document.querySelector('[data-storage-id="1"]');
+  const actionGroup=control().closest('.actions');assert.ok(actionGroup.querySelector('[data-saved-sold]'));assert.equal(actionGroup.querySelector('[data-saved-sold]').nextElementSibling,control());
+  assert.doesNotMatch(a.el('tableHead').textContent,/보관 위치/);
   assert.deepEqual([...control().options].filter(o=>!o.disabled).map(o=>o.value),['1호점','2호점','창고']);
   const before=a.requests.filter(r=>r.selection.includes('__soldAt')).length;
   control().value='2호점';control().dispatchEvent(new a.w.Event('change',{bubbles:true}));
