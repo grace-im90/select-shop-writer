@@ -175,4 +175,8 @@ test("all three pages include the shared assets, native title buttons, and valid
   }
   const products = readFileSync(new URL("../products/index.html", import.meta.url), "utf8");
   assert.doesNotMatch(products, /상품 목록 불러오기|id="excelFile"|function loadExcelFile/);
+  for (const path of ["index.html", "products/index.html", "products/sold/index.html"]) {
+    const html = readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+    assert.doesNotMatch(html, /camera\/|카메라 촬영/, path);
+  }
 });
