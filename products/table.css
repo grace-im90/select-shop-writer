@@ -1,3 +1,24 @@
+.storage-location {
+  min-width: 80px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid #cad6e8;
+  border-radius: 7px;
+  background: #fff;
+  color: #42516a;
+  font: inherit;
+  cursor: pointer;
+}
+
+.storage-location:focus-visible {
+  outline: 2px solid #356ae6;
+  outline-offset: 2px;
+}
+
+.storage-location:disabled {
+  opacity: .55;
+}
+
 /* Keep the original spacing between the detail and management buttons. */
 .tablewrap .detail-cell {
   width: 1%;

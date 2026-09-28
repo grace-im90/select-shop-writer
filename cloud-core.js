@@ -9,6 +9,36 @@
   let initialized = false;
   const savingById = new Map();
   const indexRequests = new Map();
+  let codeSaveQueue = Promise.resolve();
+
+  function nextProductCode(products) {
+    let highest = 0;
+    for (const product of products) {
+      const code = typeof product === "string" ? product : normalizeMeasurements(product?.measurements).__productCode || product?.code || "";
+      const match = /^S(\d+)$/i.exec(String(code).trim());
+      if (match) highest = Math.max(highest, Number(match[1]));
+    }
+    return "S" + String(highest + 1).padStart(3, "0");
+  }
+
+  function saveWithNewProductCode(measurements, persist) {
+    // Include sold products and serialize allocation through the completed write.
+    const next = codeSaveQueue.catch(() => {}).then(async () => {
+      const codes = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await client.from("saved_products")
+          .select("id,m_productCode:measurements->__productCode")
+          .order("id", { ascending: true }).range(offset, offset + 999);
+        if (error) throw error;
+        codes.push(...data.map(row => row.m_productCode || ""));
+        if (data.length < 1000) break;
+      }
+      measurements.__productCode = nextProductCode(codes);
+      return persist();
+    });
+    codeSaveQueue = next;
+    return next;
+  }
 
   function normalizeMeasurements(value) {
     if (!value) return {};
@@ -77,7 +107,7 @@
     };
   }
 
-  const savedIndexKeys = ["length", "shoulder", "chest", "sleeve", "waist", "hip", "thigh", "rise", "hem", "__draft", "__productCode", "__uploadSites", "__soldAt", "__status", "__brand", "__name", "__productType", "__size", "__condition", "__price", "__description", "__notice", "__instagramCaption", "__finalText", "__savedVersion"];
+  const savedIndexKeys = ["length", "shoulder", "chest", "sleeve", "waist", "hip", "thigh", "rise", "hem", "__draft", "__productCode", "__storageLocation", "__uploadSites", "__soldAt", "__status", "__brand", "__name", "__productType", "__size", "__condition", "__price", "__description", "__notice", "__instagramCaption", "__finalText", "__savedVersion"];
   const savedIndexSelect = ["id", "brand", "name", "product_type", "size", "condition", "price", "description", "created_at", "updated_at", ...savedIndexKeys.map(key => {
     const alias = "m_" + key.replace(/^__/, "");
     return `${alias}:measurements->${key}`;
@@ -187,7 +217,7 @@
       const owner = currentUser.id;
       if (indexRequests.has(owner)) return indexRequests.get(owner);
       const request = (async () => {
-        const keys = ["__productCode", "__uploadSites", "__soldAt", "__status", "__productImageDeletedAt"];
+        const keys = ["__productCode", "__storageLocation", "__uploadSites", "__soldAt", "__status", "__productImageDeletedAt"];
         const selection = ["id", "brand", "name", "product_type", "size", "condition", "price", "created_at", "updated_at",
           ...keys.map(key => `m_${key.slice(2)}:measurements->${key}`)].join(",");
         const { data, error } = await client.from("saved_products").select(selection).order("created_at", { ascending: false }).order("id", { ascending: false });
@@ -276,7 +306,7 @@
     const incoming = normalizeMeasurements(product.measurements);
     const stored = normalizeMeasurements(existing?.measurements);
     const measurements = product._summary ? { ...stored, ...incoming } : { ...incoming };
-    for (const key of ["__productImage", "__productCode", "__uploadSites", "__instagramCaption", "__productImageDeletedAt"]) {
+    for (const key of ["__productImage", "__productCode", "__storageLocation", "__uploadSites", "__instagramCaption", "__productImageDeletedAt"]) {
       if (!Object.prototype.hasOwnProperty.call(incoming, key) && Object.prototype.hasOwnProperty.call(stored, key)) measurements[key] = stored[key];
     }
     // A missing image in a summary is not an instruction to delete the original.
@@ -300,15 +330,21 @@
       measurements,
       updated_at: new Date().toISOString()
     };
-    let query;
-    if (isExisting) {
-      query = client.from("saved_products").update(payload).eq("id", product.id).select().single();
-    } else {
-      query = client.from("saved_products").insert(payload).select().single();
+    const persist = async () => {
+      const query = isExisting
+        ? client.from("saved_products").update(payload).eq("id", product.id).select().single()
+        : client.from("saved_products").insert(payload).select().single();
+      const { data, error } = await query;
+      if (error) throw error;
+      return savedFromRow(data);
+    };
+    const existingCode = String(stored.__productCode || "").trim();
+    if (existingCode) {
+      // A product keeps its number through sale, restore, edits and photo changes.
+      measurements.__productCode = existingCode;
+      return persist();
     }
-    const { data, error } = await query;
-    if (error) throw error;
-    return savedFromRow(data);
+    return saveWithNewProductCode(measurements, persist);
   }
 
   async function deleteSaved(id) {
@@ -549,6 +585,7 @@
     listSavedImages,
     listSavedImageIds,
     productImage,
+    nextProductCode,
     getSaved,
     saveSaved,
     updateSavedMetadata,

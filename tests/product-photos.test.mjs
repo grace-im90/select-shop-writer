@@ -18,12 +18,13 @@ function fixture(id, image = photo) {
       __draft:{brand:'브랜드',name:'상품 '+id,productType:'상의',size:'M',price:35000,description:'상세 설명 '+id,notice:'구매 안내 '+id,instagramCaption:'캡션'}} };
 }
 
-function harness(rows, { cache = new Map(), visible = 3 } = {}) {
-  const dom = new JSDOM(source('products/index.html'), {url:'https://grace-im90.github.io/select-shop-writer/products/',runScripts:'outside-only',pretendToBeVisual:true});
+function harness(rows, { cache = new Map(), visible = 3, file = 'products/index.html', local = false } = {}) {
+  const dom = new JSDOM(source(file), {url:'https://grace-im90.github.io/select-shop-writer/'+file.replace('index.html',''),runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window, db=new Map(rows.map(row=>[String(row.id),clone(row)])), requests=[], alerts=[];
   let failRead=false, delayImages=null;
   w.AbortController=AbortController;
   w.alert=message=>alerts.push(message);w.confirm=()=>true;
+  w.TextDecoder=TextDecoder;w.TextEncoder=TextEncoder;w.scrollTo=()=>{};
   w.IntersectionObserver=class {
     constructor(callback){this.callback=callback;}
     disconnect(){} unobserve(){}
@@ -34,6 +35,7 @@ function harness(rows, { cache = new Map(), visible = 3 } = {}) {
     const q={selection:'*', operation:'read', filters:[], orders:[], one:false, patch:null,
       select(value='*'){this.selection=value;return this;},
       order(key,options){this.orders.push([key,options]);return this;},
+      range(start,end){this.start=start;this.end=end;return this;},
       eq(key,value){this.filters.push(row=>String(row[key])===String(value));return this;},
       in(key,values){this.filters.push(row=>values.map(String).includes(String(row[key])));return this;},
       or(){this.filters.push(row=>row.measurements.__productImage!=null||row.measurements.__draft?.productImage!=null);return this;},
@@ -47,7 +49,9 @@ function harness(rows, { cache = new Map(), visible = 3 } = {}) {
         if(failRead&&this.operation==='read'&&this.one)return {data:null,error:new Error('offline')};
         if(this.selection==='id,measurements'&&delayImages)await delayImages;
         if(this.operation==='update'){selected=selected.map(row=>({...row,...clone(this.patch)}));selected.forEach(row=>db.set(String(row.id),row));}
+        if(this.operation==='insert'){const row={id:Math.max(0,...[...db.keys()].map(Number))+1,created_at:new Date().toISOString(),...clone(this.patch)};db.set(String(row.id),row);selected=[row];}
         for(const [key,options]of [...this.orders].reverse())selected.sort((a,b)=>String(a[key]).localeCompare(String(b[key]),'en',{numeric:true})*(options.ascending?1:-1));
+        if(this.start!=null)selected=selected.slice(this.start,this.end+1);
         const projected=selected.map(row=>{
           if(this.selection==='*')return clone(row);
           const result={};for(const field of this.selection.split(',')){
@@ -59,11 +63,13 @@ function harness(rows, { cache = new Map(), visible = 3 } = {}) {
       }
     };return q;
   }
-  w.supabase={createClient:()=>({from:()=>query(),auth:{getSession:async()=>({data:{session:{user:{id:'owner',email:'test@example.invalid'}}}}),onAuthStateChange(){}}})};
+  w.supabase={createClient:()=>({from:()=>query(),auth:{getSession:async()=>({data:{session:local?null:{user:{id:'owner',email:'test@example.invalid'}}}}),onAuthStateChange(){}}})};
   w.eval(source('cloud-core.js'));w.eval(source('cloud-patches.js'));
+  w.eval(source('products/storage.js'));
+  if(file==='index.html')w.eval(source('product-editor.js'));
   const context=dom.getInternalVMContext();
   for(const script of w.document.querySelectorAll('script:not([src])'))new Script(script.textContent).runInContext(context);
-  new Script(source('products/management.js')).runInContext(context);
+  if(file==='products/index.html')new Script(source('products/management.js')).runInContext(context);
   w.document.dispatchEvent(new w.Event('DOMContentLoaded'));
   return {w,dom,db,requests,alerts,cache,run:code=>new Script(code).runInContext(context),el:id=>w.document.getElementById(id),
     failRead:value=>{failRead=value;},delayImages:value=>{delayImages=value;},
@@ -171,4 +177,67 @@ test('restoring a large pre-existing photo does not silently clear it',()=>{
   assert.equal(dom.window.SelectProductEditor.read().productImage.src,large.src);
   assert.throws(()=>dom.window.SelectProductEditor.image(large),/250KB/);
   dom.window.close();
+});
+
+test('sold numbers remain reserved and simultaneous new saves receive consecutive fresh numbers without photos',async()=>{
+  const sold=fixture(1);sold.measurements.__productCode='S999';sold.measurements.__soldAt='2026-09-25';sold.measurements.__status='sold';
+  const a=harness([sold,fixture(2)]);await a.w.SelectCloud.ready();
+  const fresh={brand:'신상품',name:'사진 없는 상품',productType:'상의',size:'L',condition:'A',price:10000,description:'',measurements:{}};
+  const created=await Promise.all([a.w.SelectCloud.saveSaved({...fresh,id:Date.now()}),a.w.SelectCloud.saveSaved({...fresh,id:Date.now()+1})]);
+  assert.deepEqual(created.map(p=>p.measurements.__productCode),['S1000','S1001']);
+  assert.equal(a.db.get('1').measurements.__productCode,'S999');
+  await a.run('loadSaved()');
+  const index=a.run('saved.findIndex(p=>p.id===2)');await a.run(`markSold(${index})`);
+  assert.equal(a.db.get('2').measurements.__productCode,'S002');
+  const latest=await a.w.SelectCloud.saveSaved({...fresh,id:Date.now()+2});assert.equal(latest.measurements.__productCode,'S1002');
+  await a.w.SelectCloud.updateSavedMetadata(1,{__productCode:null});assert.equal(a.db.get('1').measurements.__productCode,'S999');
+  await a.close();
+});
+
+test('old sold and active duplicates keep their numbers while missing codes are assigned after every reserved number',async()=>{
+  const sold=fixture(1),active=fixture(2),missing=fixture(3);
+  sold.measurements.__soldAt='2026-09-25';active.measurements.__productCode='S001';delete missing.measurements.__productCode;
+  const a=harness([sold,active,missing]);await until(()=>a.db.get('3').measurements.__productCode);
+  assert.equal(a.db.get('1').measurements.__productCode,'S001');assert.equal(a.db.get('2').measurements.__productCode,'S001');
+  assert.equal(a.db.get('3').measurements.__productCode,'S002');await a.close();
+});
+
+test('location selection saves immediately and survives reload, edits, photo replacement, sale and restore',async()=>{
+  const a=harness([fixture(1)]);await until(()=>a.images().length===1);
+  const control=()=>a.w.document.querySelector('[data-storage-id="1"]');
+  assert.deepEqual([...control().options].filter(o=>!o.disabled).map(o=>o.value),['1호점','2호점','창고']);
+  const before=a.requests.filter(r=>r.selection.includes('__soldAt')).length;
+  control().value='2호점';control().dispatchEvent(new a.w.Event('change',{bubbles:true}));
+  assert.equal(control().disabled,true);await until(()=>!control().disabled);
+  assert.equal(a.db.get('1').measurements.__storageLocation,'2호점');assert.deepEqual(a.db.get('1').measurements.__productImage,photo);
+  assert.equal(a.requests.filter(r=>r.selection.includes('__soldAt')).length,before);
+  await a.run('loadSaved()');assert.equal(control().value,'2호점');
+  await a.run('editSaved(0)');a.el('editName').value='수정한 상품';await a.run('saveEdit()');
+  assert.equal(a.db.get('1').measurements.__storageLocation,'2호점');
+  await a.w.SelectCloud.updateSavedMetadata(1,{__productImage:photo2});
+  await a.run('markSold(0)');assert.equal(a.db.get('1').measurements.__storageLocation,'2호점');
+  const sold=harness([...a.db.values()],{file:'products/sold/index.html'});await until(()=>sold.w.document.querySelector('[data-storage-id="1"]'));
+  assert.match(sold.el('tableBody').textContent,/S001/);assert.equal(sold.w.document.querySelector('[data-storage-id="1"]').value,'2호점');
+  await sold.run('restoreSold(0)');const restored=sold.db.get('1');
+  assert.equal(restored.measurements.__productCode,'S001');assert.equal(restored.measurements.__storageLocation,'2호점');assert.deepEqual(restored.measurements.__productImage,photo2);
+  await a.close();await sold.close();
+});
+
+test('failed location saves restore the previous selection without modifying product data',async()=>{
+  const row=fixture(1);row.measurements.__storageLocation='창고';const a=harness([row]);await until(()=>a.images().length===1);
+  a.failRead(true);const select=a.w.document.querySelector('[data-storage-id="1"]');select.value='1호점';select.dispatchEvent(new a.w.Event('change',{bubbles:true}));
+  await until(()=>!select.disabled);assert.equal(select.value,'창고');assert.equal(a.db.get('1').measurements.__storageLocation,'창고');assert.equal(a.alerts.length,1);await a.close();
+});
+
+test('local writing and list editing preserve old numbers and locations and never fill sold-number gaps',async()=>{
+  const a=harness([],{file:'index.html',local:true});await a.w.SelectCloud.ready();
+  a.w.localStorage.setItem('select-saved-products',JSON.stringify([{id:1,name:'판매완료',measurements:{__productCode:'S900',__soldAt:'2026-09-25'}}]));
+  a.el('name').value='새 상품';await a.run('saveCurrentProduct()');
+  let products=JSON.parse(a.w.localStorage.getItem('select-saved-products'));assert.equal(products[0].measurements.__productCode,'S901');
+  products[0].measurements.__storageLocation='창고';
+  const b=harness([],{local:true});await b.w.SelectCloud.ready();b.w.localStorage.setItem('select-saved-products',JSON.stringify(products));await b.run('loadSaved()');
+  const select=b.w.document.querySelector(`[data-storage-id="${products[0].id}"]`);select.value='1호점';select.dispatchEvent(new b.w.Event('change',{bubbles:true}));await until(()=>!select.disabled);
+  await b.run('editSaved(0)');b.el('editName').value='수정한 새 상품';await b.run('saveEdit()');
+  const edited=JSON.parse(b.w.localStorage.getItem('select-saved-products'))[0];assert.equal(edited.measurements.__productCode,'S901');assert.equal(edited.measurements.__storageLocation,'1호점');
+  await a.close();await b.close();
 });

@@ -22,6 +22,7 @@
   let enhancing = false;
   let savingCodes = false;
   const pendingCodeSaves = new Map();
+  const failedCodeIds = new Set();
   const pendingImageLoads = new Set();
   const imageCache = new Map();
   const imageQueue = new Map();
@@ -105,9 +106,7 @@
   }
 
   function allocateProductCode(used) {
-    let number = 1;
-    while (used.has("S" + String(number).padStart(3, "0"))) number++;
-    return "S" + String(number).padStart(3, "0");
+    return SelectCloud.nextProductCode([...used]);
   }
 
   function activeSavedProducts() {
@@ -568,13 +567,17 @@
     try {
       while (pendingCodeSaves.size) {
         const [id, product] = pendingCodeSaves.entries().next().value;
-        pendingCodeSaves.delete(id);
         try {
-          if (window.SelectCloud && SelectCloud.user) await SelectCloud.updateSavedMetadata(product.id, { __productCode: productCode(product) });
-          else if (typeof saveLocalSavedProduct === "function") saveLocalSavedProduct(product);
+          if (window.SelectCloud && SelectCloud.user) {
+            const updated = await SelectCloud.updateSavedMetadata(product.id, {});
+            const index = saved.findIndex(item => String(item.id) === id);
+            if (index >= 0) saved[index] = withProductCode(saved[index], productCode(updated));
+            enhanceTable();
+          } else if (typeof saveLocalSavedProduct === "function") saveLocalSavedProduct(product);
         } catch (_error) {
+          failedCodeIds.add(id);
           failed = true;
-        }
+        } finally { pendingCodeSaves.delete(id); }
       }
     } finally {
       savingCodes = false;
@@ -587,22 +590,20 @@
     if (typeof saved === "undefined") return;
     const candidates = saved
       .map((product, index) => ({ product, index }))
-      .filter(({ product }) => !isSold(product))
       .sort((a, b) => String(a.product.createdAt || a.product.id || "").localeCompare(String(b.product.createdAt || b.product.id || "")));
     const allExisting = new Set(candidates.map(({ product }) => productCode(product)).filter(Boolean));
-    const kept = new Set();
     candidates.forEach(({ product, index }) => {
-      const current = productCode(product);
-      if (current && !kept.has(current)) {
-        kept.add(current);
-        return;
+      const id = String(product.id);
+      // Keep every existing number, including historical duplicates from the old policy.
+      if (productCode(product) || pendingCodeSaves.has(id) || failedCodeIds.has(id)) return;
+      let updated = product;
+      if (!window.SelectCloud?.user) {
+        const code = allocateProductCode(allExisting);
+        allExisting.add(code);
+        updated = withProductCode(product, code);
+        saved[index] = updated;
       }
-      const code = allocateProductCode(allExisting);
-      allExisting.add(code);
-      kept.add(code);
-      const updated = withProductCode(product, code);
-      saved[index] = updated;
-      pendingCodeSaves.set(String(updated.id), updated);
+      pendingCodeSaves.set(id, updated);
     });
     flushProductCodeSaves();
   }
@@ -691,8 +692,8 @@
 
   function withProductImage(product, image) {
     const existingCode = productCode(product);
-    const used = new Set(activeSavedProducts().filter(item => String(item.id) !== String(product.id)).map(productCode).filter(Boolean));
-    const code = existingCode || (image ? allocateProductCode(used) : "");
+    const used = new Set(saved.map(productCode).filter(Boolean));
+    const code = existingCode || allocateProductCode(used);
     const measurements = { ...safeMeasurements(product), __productImage: image };
     if (code) measurements.__productCode = code;
     return {
@@ -773,6 +774,7 @@
         presenceReady = false;
       }
       failedImageIds.clear();
+      failedCodeIds.clear();
       const result = await baseLoadSaved.apply(this, arguments);
       loadImagePresence();
       return result;

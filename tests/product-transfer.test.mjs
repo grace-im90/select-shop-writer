@@ -16,7 +16,8 @@ function harness({file='index.html', url='https://grace-im90.github.io/select-sh
   w.TextDecoder=TextDecoder; w.TextEncoder=TextEncoder; w.scrollTo=()=>{};
   const copied=[];w.navigator.clipboard={writeText:async value=>copied.push(value)};
   for(const [key,value] of Object.entries(storage))w.localStorage.setItem(key,value);
-  w.SelectCloud=cloud||{user:null,bindAuth(){},ready:async()=>{},setStatus(){},listSaved:async()=>[],listCatalog:async()=>[]};
+  w.SelectCloud=cloud||{user:null,bindAuth(){},ready:async()=>{},setStatus(){},listSaved:async()=>[],listCatalog:async()=>[],nextProductCode:products=>'S'+String(products.length+1).padStart(3,'0')};
+  w.eval(source('products/storage.js'));
   if(file==='index.html')w.eval(source('product-editor.js'));
   const context=dom.getInternalVMContext();
   for(const script of w.document.querySelectorAll('script:not([src])'))new Script(script.textContent).runInContext(context);
