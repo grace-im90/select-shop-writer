@@ -54,7 +54,7 @@
   </div>
   <script src="../../title-copy.js?v=1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://grace-im90.github.io/select-shop-writer/cloud.js?v=26"></script>
+  <script src="https://grace-im90.github.io/select-shop-writer/cloud.js?v=27"></script>
   <script>
     const $=id=>document.getElementById(id);let saved=[],page=1,detailProduct=null;const pageSize=50;
     function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
@@ -68,7 +68,7 @@
     function saveLocalSavedProduct(updated){const list=JSON.parse(localStorage.getItem("select-saved-products")||"[]"),pos=list.findIndex(item=>String(item.id)===String(updated.id));if(pos>=0)list[pos]=updated;else list.unshift(updated);localStorage.setItem("select-saved-products",JSON.stringify(list))}
     function removeSoldState(product){const measurements={...measurementsOf(product)};delete measurements.__soldAt;if(measurements.__status==="sold")delete measurements.__status;const updated={...product,measurements,updatedAt:new Date().toISOString()};delete updated.soldAt;delete updated.status;return updated}
     function filtered(){const q=$("query").value.toLowerCase().replace(/\s+/g,""),items=soldItems();if(!q)return items;return items.filter(p=>Object.values({name:p.name,brand:p.brand,code:measurementsOf(p).__productCode||p.code||"",size:p.size,price:p.price}).join(" ").toLowerCase().replace(/\s+/g,"").includes(q))}
-    async function loadSaved(){try{await SelectCloud.ready();const cloud=SelectCloud.user?await SelectCloud.listSaved():null;saved=cloud??JSON.parse(localStorage.getItem("select-saved-products")||"[]")}catch(error){saved=[];$("status").textContent=error.message||"판매완료 상품을 불러오지 못했습니다."}$("soldTotal").textContent=soldItems().length.toLocaleString("ko-KR")+"개";$("activeTotal").textContent=activeItems().length.toLocaleString("ko-KR")+"개";render()}
+    async function loadSaved(){let message="";try{await SelectCloud.ready();const cloud=SelectCloud.user?await SelectCloud.listSaved():null;saved=cloud??JSON.parse(localStorage.getItem("select-saved-products")||"[]")}catch(error){message=error.message||"판매완료 상품을 불러오지 못했습니다."}$("soldTotal").textContent=soldItems().length.toLocaleString("ko-KR")+"개";$("activeTotal").textContent=activeItems().length.toLocaleString("ko-KR")+"개";render();if(message)$("status").textContent=message}
     function showDetail(index){const p=saved[index];if(!p)return;detailProduct=p;$("detailTitle").textContent=[p.brand,p.name].filter(Boolean).join(" ")||"판매완료 상품 내용";$("detailBody").innerHTML=`<div class="detail-section"><h3>당근·후르츠 등록용 판매글</h3><p>${esc(savedText(p))}</p></div>`;$("detailOverlay").classList.remove("hidden")}
     function closeDetail(){detailProduct=null;$("detailOverlay").classList.add("hidden")}
     const measureFieldsByType={상의:[["length","총장"],["shoulder","어깨"],["chest","가슴"],["sleeve","소매"]],아우터:[["length","총장"],["shoulder","어깨"],["chest","가슴"],["sleeve","소매"]],원피스:[["length","총장"],["shoulder","어깨"],["chest","가슴"],["waist","허리"],["sleeve","소매"]],하의:[["length","총장"],["waist","허리"],["hip","엉덩이"],["thigh","허벅지"],["rise","밑위"],["hem","밑단"]],신발:[]};
