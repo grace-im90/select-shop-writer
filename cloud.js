@@ -4,7 +4,7 @@
   function writeScript(path) {
     document.write('<script src="' + path + '"><\/script>');
   }
-  writeScript(base + "/cloud-core.js?v=7");
+  writeScript(base + "/cloud-core.js?v=8");
   writeScript(base + "/cloud-patches.js?v=6");
   if (/\/products(?:\/sold)?\/?$/.test(location.pathname)) {
     writeScript(base + "/products/storage.js?v=1");

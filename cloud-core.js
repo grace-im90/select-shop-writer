@@ -7,6 +7,8 @@
   const readyPromise = new Promise(resolve => { readyResolve = resolve; });
   const listeners = [];
   let initialized = false;
+  let authFailure = null;
+  let authRevision = 0;
   const savingById = new Map();
   const indexRequests = new Map();
   let codeSaveQueue = Promise.resolve();
@@ -64,7 +66,7 @@
     return null;
   }
 
-  async function requestWithTimeout(query) {
+  async function requestWithTimeout(query, message = "요청 시간이 초과되었습니다. 연결을 확인한 뒤 다시 시도해 주세요.") {
     const controller = new AbortController();
     let timer;
     try {
@@ -72,7 +74,7 @@
         typeof query.abortSignal === "function" ? query.abortSignal(controller.signal) : query,
         new Promise((_, reject) => { timer = setTimeout(() => {
           controller.abort();
-          reject(new Error("사진 요청 시간이 초과되었습니다. 다시 불러오기를 눌러 주세요."));
+          reject(new Error(message));
         }, 15000); })
       ]);
     } finally { clearTimeout(timer); }
@@ -134,9 +136,28 @@
     };
   }
 
+  async function ready() {
+    await readyPromise;
+    if (authFailure) throw authFailure;
+    return currentUser;
+  }
+
+  async function runListener(listener) {
+    try { await listener(currentUser); }
+    catch (error) { updateAuthUI(error.message || "클라우드 동기화에 실패했습니다."); }
+  }
+
   async function notify() {
     updateAuthUI();
-    for (const listener of listeners) await listener(currentUser);
+    for (const listener of listeners) await runListener(listener);
+  }
+
+  function receiveSession(session) {
+    authRevision++;
+    currentUser = session?.user || null;
+    authFailure = null;
+    initialized = true;
+    readyResolve(currentUser);
   }
 
   function updateAuthUI(message) {
@@ -156,15 +177,26 @@
   }
 
   async function initialize() {
-    const { data } = await client.auth.getSession();
-    currentUser = data.session?.user || null;
-    initialized = true;
-    readyResolve(currentUser);
-    await notify();
+    // Keep recovery active even if the first session request fails.
     client.auth.onAuthStateChange((_event, session) => {
-      currentUser = session?.user || null;
+      receiveSession(session);
       setTimeout(() => notify(), 0);
     });
+    const revision = authRevision;
+    try {
+      const { data, error } = await requestWithTimeout(client.auth.getSession(),
+        "로그인 상태 확인 시간이 초과되었습니다. 연결을 확인한 뒤 다시 로그인해 주세요.");
+      if (authRevision !== revision) return;
+      if (error) throw error;
+      receiveSession(data?.session);
+      await notify();
+    } catch (error) {
+      if (authRevision !== revision) return;
+      authFailure = error;
+      initialized = true;
+      readyResolve(null);
+      updateAuthUI(error.message || "로그인 상태를 확인하지 못했습니다.");
+    }
   }
 
   async function signIn(email, password) {
@@ -183,7 +215,7 @@
   function bindAuth(onChange) {
     if (onChange) {
       listeners.push(onChange);
-      if (initialized) setTimeout(() => onChange(currentUser), 0);
+      if (initialized) setTimeout(() => runListener(onChange), 0);
     }
     const email = document.getElementById("cloudEmail");
     const password = document.getElementById("cloudPassword");
@@ -211,7 +243,7 @@
   }
 
   async function listSaved(options = {}) {
-    await readyPromise;
+    await ready();
     if (!currentUser) return null;
     if (options.summary) {
       const owner = currentUser.id;
@@ -220,7 +252,7 @@
         const keys = ["__productCode", "__storageLocation", "__uploadSites", "__soldAt", "__status", "__productImageDeletedAt"];
         const selection = ["id", "brand", "name", "product_type", "size", "condition", "price", "created_at", "updated_at",
           ...keys.map(key => `m_${key.slice(2)}:measurements->${key}`)].join(",");
-        const { data, error } = await client.from("saved_products").select(selection).order("created_at", { ascending: false }).order("id", { ascending: false });
+        const { data, error } = await requestWithTimeout(client.from("saved_products").select(selection).order("created_at", { ascending: false }).order("id", { ascending: false }));
         if (error) throw error;
         return data.map(row => {
           const measurements = {};
@@ -233,13 +265,13 @@
       indexRequests.set(owner, request);
       try { return await request; } finally { if (indexRequests.get(owner) === request) indexRequests.delete(owner); }
     }
-    const { data, error } = await client.from("saved_products").select(savedIndexSelect).order("updated_at", { ascending: false });
+    const { data, error } = await requestWithTimeout(client.from("saved_products").select(savedIndexSelect).order("updated_at", { ascending: false }));
     if (error) throw error;
     return data.map(savedIndexFromRow);
   }
 
   async function listSavedImages(ids) {
-    await readyPromise;
+    await ready();
     if (!currentUser || !Array.isArray(ids) || ids.length === 0) return [];
     const batches = [];
     for (let index = 0; index < ids.length; index += 8) batches.push(ids.slice(index, index + 8));
@@ -260,7 +292,7 @@
   }
 
   async function listSavedImageIds() {
-    await readyPromise;
+    await ready();
     if (!currentUser) return [];
     const { data, error } = await requestWithTimeout(client.from("saved_products").select("id")
       .or("measurements->>__productImage.not.is.null,measurements->__draft->>productImage.not.is.null"));
@@ -269,9 +301,9 @@
   }
 
   async function getSaved(id) {
-    await readyPromise;
+    await ready();
     if (!currentUser) return null;
-    const { data, error } = await client.from("saved_products").select("*").eq("id", id).single();
+    const { data, error } = await requestWithTimeout(client.from("saved_products").select("*").eq("id", id).single());
     if (error) throw error;
     return savedFromRow(data);
   }
@@ -299,7 +331,7 @@
   }
 
   async function saveSavedNow(product, original = null) {
-    await readyPromise;
+    await ready();
     if (!currentUser) return null;
     const isExisting = product.id && String(product.id).length < 13;
     const existing = original || (isExisting ? await getSaved(product.id) : null);
@@ -348,7 +380,7 @@
   }
 
   async function deleteSaved(id) {
-    await readyPromise;
+    await ready();
     if (!currentUser) return false;
     const { error } = await client.from("saved_products").delete().eq("id", id);
     if (error) throw error;
@@ -356,15 +388,15 @@
   }
 
   async function listCatalog() {
-    await readyPromise;
+    await ready();
     if (!currentUser) return null;
-    const { data, error } = await client.from("inventory_products").select("*").order("updated_at", { ascending: false });
+    const { data, error } = await requestWithTimeout(client.from("inventory_products").select("*").order("updated_at", { ascending: false }));
     if (error) throw error;
     return data.map(catalogFromRow);
   }
 
   async function syncCatalog(products, replace) {
-    await readyPromise;
+    await ready();
     if (!currentUser) return false;
     if (replace) {
       const { error } = await client.from("inventory_products").delete().eq("user_id", currentUser.id);
@@ -528,7 +560,7 @@
 
     async function refreshUploadStates() {
       try {
-        await readyPromise;
+        await ready();
         const products = currentUser ? await listSaved() : localSavedProducts();
         stateById.clear();
         products.forEach(product => stateById.set(String(product.id), uploadState(product)));
@@ -544,7 +576,7 @@
       label.classList.add("saving");
       input.disabled = true;
       try {
-        await readyPromise;
+        await ready();
         if (currentUser) {
           const product = await getSaved(id);
           if (product) await saveSaved(withUploadState(product, next));
@@ -578,7 +610,7 @@
   window.SelectCloud = {
     __productMetadataPatch: true,
     client,
-    ready: () => readyPromise,
+    ready,
     get user() { return currentUser; },
     bindAuth,
     listSaved,
@@ -595,6 +627,8 @@
     setStatus: updateAuthUI
   };
   initialize().catch(error => {
+    authFailure = error;
+    initialized = true;
     readyResolve(null);
     updateAuthUI(error.message || "클라우드 연결을 확인하지 못했습니다.");
   });

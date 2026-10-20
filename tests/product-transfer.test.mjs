@@ -91,3 +91,57 @@ test('legacy English-brand AI payload remains compatible',()=>{
  const a=harness({url:transferUrl({...payload,brand:'mont-bell',name:'mont-bell 카키 자켓',size:'L'})});
  assert.equal(a.el('brand').value,'몽벨');assert.equal(a.el('name').value,'카키 자켓 (L)');a.dom.window.close();
 });
+
+test('server verification failure keeps the created ID so retry updates instead of inserting a duplicate',async()=>{
+  let row, inserts=0, failVerification=true;
+  const cloud={
+    user:{email:'fixture@example.invalid'},bindAuth(){},ready:async()=>{},
+    saveSaved:async p=>{
+      const isNew=String(p.id).length>=13;
+      if(isNew)inserts++;
+      row={...plain(p),id:isNew?42:p.id};
+      return plain(row);
+    },
+    getSaved:async()=>{if(failVerification)throw new Error('verification offline');return plain(row);}
+  };
+  const a=harness({url:transferUrl(payload),cloud});
+  await a.eval('saveCurrentProduct()');
+  assert.match(a.el('saveStatus').textContent,/verification offline/);
+  const draft=JSON.parse(a.w.localStorage.getItem('select-current-writing-draft'));
+  assert.equal(draft.savedId,42);
+  assert.equal(a.el('name').value,'네이비 블루종 (48)');
+  failVerification=false;
+  await a.eval('saveCurrentProduct()');
+  assert.equal(inserts,1);assert.equal(row.id,42);
+  assert.match(a.el('saveStatus').textContent,/클라우드 저장 완료/);
+  a.dom.window.close();
+});
+
+test('restoring and saving an existing HTTPS photo preserves it without allowing remote-photo AI imports',async()=>{
+  const remote={src:'https://example.invalid/existing-photo.jpg'};
+  const a=harness();
+  const existing={id:123,brand:'칼하트',name:'기존 상품',size:'L',productType:'아우터',
+    condition:'B+ 좋은 상태',description:'기존 설명',measurements:{__productImage:remote,__productCode:'S123'}};
+  a.w.fixture=existing;a.eval('applySavedProduct(fixture)');
+  assert.equal(a.w.SelectProductEditor.read().productImage.src,remote.src);
+  await a.eval('saveCurrentProduct()');
+  const row=JSON.parse(a.w.localStorage.getItem('select-saved-products'))[0];
+  assert.equal(row.measurements.__productImage.src,remote.src);
+  assert.throws(()=>a.w.SelectProductEditor.normalize({...payload,thumbnail:remote}));
+  assert.throws(()=>a.w.SelectProductEditor.image({src:'javascript:alert(1)'},true));
+  a.dom.window.close();
+});
+
+test('sold-page load errors preserve the last list and remain visible after rendering',async()=>{
+  let fail=false;
+  const row={id:9,brand:'테스트',name:'판매완료',size:'M',price:10000,measurements:{__soldAt:'2026-09-01'}};
+  const cloud={user:{email:'fixture@example.invalid'},bindAuth(){},ready:async()=>{},
+    listSaved:async()=>{if(fail)throw new Error('연결 오류 테스트');return [plain(row)];},setStatus(){}};
+  const a=harness({file:'products/sold/index.html',cloud});
+  await a.eval('loadSaved()');
+  fail=true;await a.eval('loadSaved()');
+  assert.equal(a.eval('saved.length'),1);
+  assert.match(a.el('status').textContent,/연결 오류 테스트/);
+  assert.equal(a.el('soldTotal').textContent,'1개');
+  a.dom.window.close();
+});

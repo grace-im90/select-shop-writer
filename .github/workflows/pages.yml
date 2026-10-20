@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -12,15 +13,14 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,7 +33,17 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npm test
-          rm -rf node_modules
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: verify
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
@@ -45,3 +55,5 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify deployed pages and assets
+        run: node tests/verify-deployment.mjs

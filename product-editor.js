@@ -7,6 +7,8 @@
   function image(value, stored = false) {
     const src = typeof value === 'string' ? value : value?.src;
     if (value == null || value === '') return null;
+    if (stored && typeof src === 'string' && /^https:\/\/[^\s]+$/i.test(src)) return { src };
+    if (stored && typeof src === 'string' && /^data:image\/(jpeg|jpg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(src)) return { src };
     if (typeof src !== 'string' || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(src) || (!stored && src.length > 350000)) {
       throw new Error('대표사진은 250KB 이하의 JPEG·PNG·WebP 이미지로 준비해 주세요.');
     }
