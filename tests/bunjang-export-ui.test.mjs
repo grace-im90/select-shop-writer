@@ -36,7 +36,7 @@ test('download builds one workbook plus ordered photos without marking products 
     const bundle=await a.w.JSZip.loadAsync(await a.downloads[0].blob.arrayBuffer());assert.ok(bundle.file('photos/S001_01.png'));assert.ok(bundle.file('photos/S001_02.png'));assert.ok(bundle.file('등록안내.txt'));
     const workbookName=Object.keys(bundle.files).find(name=>name.endsWith('.xlsx'));assert.ok(workbookName);const workbook=await a.w.JSZip.loadAsync(await bundle.file(workbookName).async('uint8array'));assert.match(await workbook.file('xl/worksheets/sheet1.xml').async('string'),/S001_01.png, S001_02.png/);
     assert.notEqual(a.stored()[0].measurements.__uploadSites?.bunjang,true);assert.equal(a.stored()[0].measurements.__bunjangExport.pendingAt,undefined);
-    await until(()=>!a.el('bjPending').disabled);a.el('bjPending').click();await until(()=>Boolean(a.stored()[0].measurements.__bunjangExport.pendingAt));assert.notEqual(a.stored()[0].measurements.__uploadSites?.bunjang,true);
+    await until(()=>!a.el('bjPending').disabled);a.el('bjPending').click();await until(()=>Boolean(a.stored()[0].measurements.__bunjangExport.pendingAt));await until(()=>a.el('bjOverlay').hidden);assert.notEqual(a.stored()[0].measurements.__uploadSites?.bunjang,true);
   }finally{a.close();}
 });
 test('missing photo blocks export and account changes close any open review',async()=>{
