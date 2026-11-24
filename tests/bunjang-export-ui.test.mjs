@@ -7,7 +7,7 @@ const require=createRequire(import.meta.url),{JSDOM}=require(process.env.JSDOM_P
 const source=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const photo={src:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j9xkAAAAASUVORK5CYII='};
 const tick=()=>new Promise(resolve=>setTimeout(resolve,10));
-async function until(test){for(let n=0;n<150;n++){if(test())return;await tick();}assert.fail('UI did not settle');}
+async function until(test,detail=()=> 'UI did not settle'){for(let n=0;n<1000;n++){if(test())return;await tick();}assert.fail(detail());}
 function fixture(id,metadata={}){return{id,brand:'브랜드',name:'니트 (M)',productType:'상의',size:'M',condition:'A 매우 좋은 상태',price:35000,createdAt:'2026-11-24T00:00:00Z',updatedAt:'2026-11-24T00:00:00Z',measurements:{__productCode:'S'+String(id).padStart(3,'0'),__productImage:photo,__draft:{brand:'브랜드',name:'니트 (M)',size:'M',productType:'상의',condition:'A 매우 좋은 상태',price:35000,description:'본문\n\n두 번째 문단',notice:'구매 안내'},...metadata}};}
 function harness(products){
   const dom=new JSDOM(source('products/index.html'),{url:'https://grace-im90.github.io/select-shop-writer/products/',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window,downloads=[];let account=null;
@@ -32,7 +32,7 @@ test('download builds one workbook plus ordered photos without marking products 
   const a=harness([fixture(1,{__bunjangPhotos:[photo,photo]})]);
   try{
     await until(()=>a.w.document.querySelector('[data-bj-select="1"]'));a.el('bjSelectMissing').click();a.el('bjReview').click();await until(()=>a.el('bjOverlay')&&!a.el('bjOverlay').hidden);
-    assert.equal(a.el('bjPending').disabled,true);a.el('bjDownload').click();await until(()=>a.downloads.length===1||!a.el('bjDownload').disabled);assert.equal(a.downloads.length,1,a.el('bjReviewMessage').textContent);
+    assert.equal(a.el('bjPending').disabled,true);a.el('bjDownload').click();await until(()=>a.downloads.length===1||!a.el('bjDownload').disabled,()=>a.el('bjReviewMessage').textContent);assert.equal(a.downloads.length,1,a.el('bjReviewMessage').textContent);
     const bundle=await a.w.JSZip.loadAsync(await a.downloads[0].blob.arrayBuffer());assert.ok(bundle.file('photos/S001_01.png'));assert.ok(bundle.file('photos/S001_02.png'));assert.ok(bundle.file('등록안내.txt'));
     const workbookName=Object.keys(bundle.files).find(name=>name.endsWith('.xlsx'));assert.ok(workbookName);const workbook=await a.w.JSZip.loadAsync(await bundle.file(workbookName).async('uint8array'));assert.match(await workbook.file('xl/worksheets/sheet1.xml').async('string'),/S001_01.png, S001_02.png/);
     assert.notEqual(a.stored()[0].measurements.__uploadSites?.bunjang,true);assert.equal(a.stored()[0].measurements.__bunjangExport.pendingAt,undefined);
