@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -52,8 +53,33 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Wait for uploaded site metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_ARTIFACT_NAME: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          node --input-type=module <<'NODE'
+          const url = 'https://api.github.com/repos/' + process.env.GH_REPOSITORY + '/actions/runs/' + process.env.GH_RUN_ID + '/artifacts';
+          let ready = false;
+          for (let attempt = 0; attempt < 12; attempt++) {
+            const response = await fetch(url, { headers: { Authorization: 'Bearer ' + process.env.GH_TOKEN, Accept: 'application/vnd.github+json' } });
+            if (!response.ok) throw new Error('Artifact metadata HTTP ' + response.status);
+            const data = await response.json();
+            if (data.artifacts.some(item => item.name === process.env.GH_ARTIFACT_NAME && !item.expired)) {
+              ready = true;
+              break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+          if (!ready) throw new Error('Uploaded site artifact metadata did not become available.');
+          NODE
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Verify deployed pages and assets
         run: node tests/verify-deployment.mjs
