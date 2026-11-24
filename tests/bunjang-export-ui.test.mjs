@@ -26,12 +26,12 @@ function harness(products){
 }
 test('selection and date filter exclude posted, pending, and sold products',async()=>{
   const a=harness([fixture(1),fixture(2,{__uploadSites:{bunjang:true}}),fixture(3,{__bunjangExport:{pendingAt:'date'}}),fixture(4,{__soldAt:'date'})]);
-  try{await until(()=>a.el('bjToolbar'));a.el('bjSelectMissing').click();assert.match(a.el('bjCount').textContent,/1개 선택/);assert.equal(a.w.document.querySelector('[data-bj-select="2"]').disabled,true);assert.equal(a.w.document.querySelector('[data-bj-select="3"]').disabled,true);a.el('bjFrom').value='2026-11-25';a.el('bjFrom').dispatchEvent(new a.w.Event('change'));assert.equal(a.w.document.querySelectorAll('#tableBody tr').length,0);}finally{a.close();}
+  try{await until(()=>a.w.document.querySelector('[data-bj-select="1"]'));a.el('bjSelectMissing').click();assert.match(a.el('bjCount').textContent,/1개 선택/);assert.equal(a.w.document.querySelector('[data-bj-select="2"]').disabled,true);assert.equal(a.w.document.querySelector('[data-bj-select="3"]').disabled,true);a.el('bjFrom').value='2026-11-25';a.el('bjFrom').dispatchEvent(new a.w.Event('change'));assert.equal(a.w.document.querySelectorAll('#tableBody tr').length,0);}finally{a.close();}
 });
 test('download builds one workbook plus ordered photos without marking products uploaded, pending is explicit',async()=>{
   const a=harness([fixture(1,{__bunjangPhotos:[photo,photo]})]);
   try{
-    await until(()=>a.el('bjToolbar'));a.el('bjSelectMissing').click();a.el('bjReview').click();await until(()=>a.el('bjOverlay')&&!a.el('bjOverlay').hidden);
+    await until(()=>a.w.document.querySelector('[data-bj-select="1"]'));a.el('bjSelectMissing').click();a.el('bjReview').click();await until(()=>a.el('bjOverlay')&&!a.el('bjOverlay').hidden);
     assert.equal(a.el('bjPending').disabled,true);a.el('bjDownload').click();await until(()=>a.downloads.length===1);
     const bundle=await a.w.JSZip.loadAsync(await a.downloads[0].blob.arrayBuffer());assert.ok(bundle.file('photos/S001_01.png'));assert.ok(bundle.file('photos/S001_02.png'));assert.ok(bundle.file('등록안내.txt'));
     const workbookName=Object.keys(bundle.files).find(name=>name.endsWith('.xlsx'));assert.ok(workbookName);const workbook=await a.w.JSZip.loadAsync(await bundle.file(workbookName).async('uint8array'));assert.match(await workbook.file('xl/worksheets/sheet1.xml').async('string'),/S001_01.png, S001_02.png/);
@@ -41,9 +41,9 @@ test('download builds one workbook plus ordered photos without marking products 
 });
 test('missing photo blocks export and account changes close any open review',async()=>{
   const a=harness([fixture(1,{__bunjangPhotos:[]})]);
-  try{await until(()=>a.el('bjToolbar'));a.el('bjSelectMissing').click();a.el('bjReview').click();await until(()=>a.el('bjOverlay')&&!a.el('bjOverlay').hidden);a.el('bjDownload').click();assert.match(a.el('bjReviewMessage').textContent,/사진/);assert.equal(a.downloads.length,0);a.switchAccount();assert.equal(a.el('bjOverlay').hidden,true);assert.match(a.el('bjCount').textContent,/0개 선택/);}finally{a.close();}
+  try{await until(()=>a.w.document.querySelector('[data-bj-select="1"]'));a.el('bjSelectMissing').click();a.el('bjReview').click();await until(()=>a.el('bjOverlay')&&!a.el('bjOverlay').hidden);a.el('bjDownload').click();assert.match(a.el('bjReviewMessage').textContent,/사진/);assert.equal(a.downloads.length,0);a.switchAccount();assert.equal(a.el('bjOverlay').hidden,true);assert.match(a.el('bjCount').textContent,/0개 선택/);}finally{a.close();}
 });
 test('custom category stays visible after input and saved category survives changing default gender',async()=>{
   const a=harness([fixture(1,{__bunjangSettings:{categoryId:310260800}})]);
-  try{await until(()=>a.el('bjToolbar'));a.el('bjSelectMissing').click();a.el('bjReview').click();await until(()=>a.el('bjOverlay')&&!a.el('bjOverlay').hidden);a.el('bjGender').value='men';a.el('bjGender').dispatchEvent(new a.w.Event('change'));let select=a.w.document.querySelector('.bj-category');assert.equal(select.value,'310260800');select.value='custom';select.dispatchEvent(new a.w.Event('change',{bubbles:true}));let field=a.w.document.querySelector('.bj-custom');field.value='320210500';field.dispatchEvent(new a.w.Event('input',{bubbles:true}));field.dispatchEvent(new a.w.Event('change',{bubbles:true}));assert.equal(a.w.document.querySelector('.bj-custom').value,'320210500');}finally{a.close();}
+  try{await until(()=>a.w.document.querySelector('[data-bj-select="1"]'));a.el('bjSelectMissing').click();a.el('bjReview').click();await until(()=>a.el('bjOverlay')&&!a.el('bjOverlay').hidden);a.el('bjGender').value='men';a.el('bjGender').dispatchEvent(new a.w.Event('change'));let select=a.w.document.querySelector('.bj-category');assert.equal(select.value,'310260800');select.value='custom';select.dispatchEvent(new a.w.Event('change',{bubbles:true}));let field=a.w.document.querySelector('.bj-custom');field.value='320210500';field.dispatchEvent(new a.w.Event('input',{bubbles:true}));field.dispatchEvent(new a.w.Event('change',{bubbles:true}));assert.equal(a.w.document.querySelector('.bj-custom').value,'320210500');}finally{a.close();}
 });
