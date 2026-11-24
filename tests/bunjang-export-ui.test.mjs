@@ -11,7 +11,7 @@ async function until(test,detail=()=> 'UI did not settle'){for(let n=0;n<1000;n+
 function fixture(id,metadata={}){return{id,brand:'브랜드',name:'니트 (M)',productType:'상의',size:'M',condition:'A 매우 좋은 상태',price:35000,createdAt:'2026-11-24T00:00:00Z',updatedAt:'2026-11-24T00:00:00Z',measurements:{__productCode:'S'+String(id).padStart(3,'0'),__productImage:photo,__draft:{brand:'브랜드',name:'니트 (M)',size:'M',productType:'상의',condition:'A 매우 좋은 상태',price:35000,description:'본문\n\n두 번째 문단',notice:'구매 안내'},...metadata}};}
 function harness(products){
   const dom=new JSDOM(source('products/index.html'),{url:'https://grace-im90.github.io/select-shop-writer/products/',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window,downloads=[];let account=null;
-  w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.ArrayBuffer=ArrayBuffer;w.Uint8Array=Uint8Array;w.AbortController=AbortController;w.Blob=Blob;w.alert=()=>{};w.confirm=()=>true;
+  w.setImmediate=setImmediate;w.clearImmediate=clearImmediate;w.TextEncoder=TextEncoder;w.TextDecoder=TextDecoder;w.ArrayBuffer=ArrayBuffer;w.Uint8Array=Uint8Array;w.AbortController=AbortController;w.Blob=Blob;w.alert=()=>{};w.confirm=()=>true;
   w.localStorage.setItem('select-saved-products',JSON.stringify(products));
   w.SelectCloud={get user(){return account;},ready:async()=>{},bindAuth(callback){queueMicrotask(callback);},setStatus(){},nextProductCode:()=> 'S999'};
   w.eval(source('products/storage.js'));
