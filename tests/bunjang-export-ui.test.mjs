@@ -32,7 +32,7 @@ test('download builds one workbook plus ordered photos without marking products 
   const a=harness([fixture(1,{__bunjangPhotos:[photo,photo]})]);
   try{
     await until(()=>a.w.document.querySelector('[data-bj-select="1"]'));a.el('bjSelectMissing').click();a.el('bjReview').click();await until(()=>a.el('bjOverlay')&&!a.el('bjOverlay').hidden);
-    assert.equal(a.el('bjPending').disabled,true);a.el('bjDownload').click();await until(()=>a.downloads.length===1);
+    assert.equal(a.el('bjPending').disabled,true);a.el('bjDownload').click();await until(()=>a.downloads.length===1||!a.el('bjDownload').disabled);assert.equal(a.downloads.length,1,a.el('bjReviewMessage').textContent);
     const bundle=await a.w.JSZip.loadAsync(await a.downloads[0].blob.arrayBuffer());assert.ok(bundle.file('photos/S001_01.png'));assert.ok(bundle.file('photos/S001_02.png'));assert.ok(bundle.file('등록안내.txt'));
     const workbookName=Object.keys(bundle.files).find(name=>name.endsWith('.xlsx'));assert.ok(workbookName);const workbook=await a.w.JSZip.loadAsync(await bundle.file(workbookName).async('uint8array'));assert.match(await workbook.file('xl/worksheets/sheet1.xml').async('string'),/S001_01.png, S001_02.png/);
     assert.notEqual(a.stored()[0].measurements.__uploadSites?.bunjang,true);assert.equal(a.stored()[0].measurements.__bunjangExport.pendingAt,undefined);
