@@ -109,7 +109,7 @@
     };
   }
 
-  const savedIndexKeys = ["length", "shoulder", "chest", "sleeve", "waist", "hip", "thigh", "rise", "hem", "__draft", "__productCode", "__storageLocation", "__uploadSites", "__soldAt", "__status", "__brand", "__name", "__productType", "__size", "__condition", "__price", "__description", "__notice", "__instagramCaption", "__finalText", "__savedVersion"];
+  const savedIndexKeys = ["length", "shoulder", "chest", "sleeve", "waist", "hip", "thigh", "rise", "hem", "__draft", "__productCode", "__storageLocation", "__uploadSites", "__soldAt", "__status", "__brand", "__name", "__productType", "__size", "__condition", "__price", "__description", "__notice", "__instagramCaption", "__finalText", "__savedVersion", "__bunjangSettings", "__bunjangExport", "__bunjangPhotoCount"];
   const savedIndexSelect = ["id", "brand", "name", "product_type", "size", "condition", "price", "description", "created_at", "updated_at", ...savedIndexKeys.map(key => {
     const alias = "m_" + key.replace(/^__/, "");
     return `${alias}:measurements->${key}`;
@@ -249,7 +249,7 @@
       const owner = currentUser.id;
       if (indexRequests.has(owner)) return indexRequests.get(owner);
       const request = (async () => {
-        const keys = ["__productCode", "__storageLocation", "__uploadSites", "__soldAt", "__status", "__productImageDeletedAt"];
+        const keys = ["__productCode", "__storageLocation", "__uploadSites", "__soldAt", "__status", "__productImageDeletedAt", "__bunjangExport", "__bunjangPhotoCount"];
         const selection = ["id", "brand", "name", "product_type", "size", "condition", "price", "created_at", "updated_at",
           ...keys.map(key => `m_${key.slice(2)}:measurements->${key}`)].join(",");
         const { data, error } = await requestWithTimeout(client.from("saved_products").select(selection).order("created_at", { ascending: false }).order("id", { ascending: false }));
@@ -338,7 +338,7 @@
     const incoming = normalizeMeasurements(product.measurements);
     const stored = normalizeMeasurements(existing?.measurements);
     const measurements = product._summary ? { ...stored, ...incoming } : { ...incoming };
-    for (const key of ["__productImage", "__productCode", "__storageLocation", "__uploadSites", "__instagramCaption", "__productImageDeletedAt"]) {
+    for (const key of ["__productImage", "__productCode", "__storageLocation", "__uploadSites", "__instagramCaption", "__productImageDeletedAt", "__bunjangPhotos", "__bunjangPhotoCount", "__bunjangSettings", "__bunjangExport"]) {
       if (!Object.prototype.hasOwnProperty.call(incoming, key) && Object.prototype.hasOwnProperty.call(stored, key)) measurements[key] = stored[key];
     }
     // A missing image in a summary is not an instruction to delete the original.

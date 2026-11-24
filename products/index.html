@@ -8,6 +8,7 @@
   <link rel="manifest" href="../manifest.webmanifest?v=1">
   <meta name="theme-color" content="#356AE6">
   <meta name="apple-mobile-web-app-title" content="셀렉상회">
+  <link rel="stylesheet" href="./bunjang-export.css?v=1">
   <style>
     :root{--ink:#172033;--muted:#687386;--blue:#356ae6;--soft:#eaf1ff;--line:#dfe5ed;--bg:#f4f7fb;--ok:#12a875}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Pretendard,"Apple SD Gothic Neo","Noto Sans KR",Arial,sans-serif}button,input{font:inherit}button{cursor:pointer}
@@ -77,7 +78,7 @@
   </div>
   <script src="../title-copy.js?v=3"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://grace-im90.github.io/select-shop-writer/cloud.js?v=27"></script>
+  <script src="https://grace-im90.github.io/select-shop-writer/cloud.js?v=28"></script>
   <script>
     const $=id=>document.getElementById(id);let saved=[],mode="saved",page=1;const pageSize=50,uploadSites=[["carrot","당근"],["bunjang","번개장터"],["fruits","후르츠"]];
     function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
@@ -98,11 +99,11 @@
     async function toggleUploadSite(index,key,checked,input){
       const current=saved[index];if(!current)return;
       const label=input?.closest(".upload-check"),nextState={...uploadState(current),[key]:checked};
-      let updated={...current,uploadSites:nextState,measurements:{...measurementsOf(current),__uploadSites:nextState}};
+      let updated={...current,uploadSites:nextState,measurements:{...measurementsOf(current),__uploadSites:nextState,...(key==="bunjang"&&checked?{__bunjangExport:{...measurementsOf(current).__bunjangExport,pendingAt:null}}:{})}};
       saved[index]=updated;if(input){input.disabled=true;label?.classList.add("saving")}
       try{
         if(window.SelectCloud&&SelectCloud.user){
-          updated=await SelectCloud.updateSavedMetadata(current.id,stored=>({__uploadSites:{...(stored.__uploadSites||{}),[key]:checked}}));
+          updated=await SelectCloud.updateSavedMetadata(current.id,stored=>({__uploadSites:{...(stored.__uploadSites||{}),[key]:checked},...(key==="bunjang"&&checked?{__bunjangExport:{...stored.__bunjangExport,pendingAt:null}}:{})}));
           updated.uploadSites=updated.measurements.__uploadSites;
         }else saveLocalSavedProduct(updated);
         const position=saved.findIndex(p=>String(p.id)===String(current.id));if(position>=0)saved[position]=updated;
@@ -124,7 +125,7 @@
     function closeEdit(){editProduct=null;$("editOverlay").classList.add("hidden")}
     function editDraft(){return{brand:$("editBrand").value.trim(),name:$("editName").value.trim(),productType:$("editType").value,size:$("editSize").value.trim(),condition:$("editCondition").value,price:Number($("editPrice").value||0),description:$("editDescription").value.trim(),instagramCaption:$("editInstagramCaption").value,notice:$("editNotice").value.trim(),measurements:{...editMeasurements}}}
     function composeEditText(d){return composeProductText(d)}
-    async function saveEdit(){if(!editProduct)return;const d=editDraft();if(!d.name){$("editStatus").textContent="상품명을 입력해 주세요.";return}const finalText=composeEditText(d),existingUploads=uploadState(editProduct),existingSoldAt=soldAtOf(editProduct),existingMeasurements=measurementsOf(editProduct),existingCode=existingMeasurements.__productCode||editProduct.code||"",existingImage=existingMeasurements.__productImage??editProduct.productImage,snapshot={...d.measurements,__uploadSites:existingUploads,__draft:{...d,finalText},__finalText:finalText,__description:d.description,__notice:d.notice,__instagramCaption:d.instagramCaption,__savedVersion:6};if(existingCode)snapshot.__productCode=existingCode;if(existingMeasurements.__storageLocation)snapshot.__storageLocation=existingMeasurements.__storageLocation;if(existingImage!==undefined)snapshot.__productImage=existingImage;if(existingSoldAt){snapshot.__soldAt=existingSoldAt;snapshot.__status="sold"}const updated={...editProduct,...d,uploadSites:existingUploads,measurements:snapshot,updatedAt:new Date().toISOString()};if(existingSoldAt)updated.soldAt=existingSoldAt;const button=$("editSave");button.disabled=true;button.textContent="저장 중…";try{if(window.SelectCloud&&SelectCloud.user){await SelectCloud.saveSaved(updated)}else saveLocalSavedProduct(updated);const brands=JSON.parse(localStorage.getItem("select-saved-brands")||"[]");if(d.brand&&!brands.some(b=>String(b).toLowerCase()===d.brand.toLowerCase()))localStorage.setItem("select-saved-brands",JSON.stringify([d.brand,...brands]));$("editStatus").textContent="수정 내용을 저장했습니다.";await loadSaved();setTimeout(closeEdit,350)}catch(error){$("editStatus").textContent=error.message||"저장하지 못했습니다."}finally{button.disabled=false;button.textContent="수정 내용 저장"}}
+    async function saveEdit(){if(!editProduct)return;const d=editDraft();if(!d.name){$("editStatus").textContent="상품명을 입력해 주세요.";return}const finalText=composeEditText(d),existingUploads=uploadState(editProduct),existingSoldAt=soldAtOf(editProduct),existingMeasurements=measurementsOf(editProduct),existingCode=existingMeasurements.__productCode||editProduct.code||"",existingImage=existingMeasurements.__productImage??editProduct.productImage,snapshot={...d.measurements,__uploadSites:existingUploads,__draft:{...d,finalText},__finalText:finalText,__description:d.description,__notice:d.notice,__instagramCaption:d.instagramCaption,__savedVersion:6};for(const key of ["__bunjangPhotos","__bunjangPhotoCount","__bunjangSettings","__bunjangExport"]){if(Object.prototype.hasOwnProperty.call(existingMeasurements,key))snapshot[key]=existingMeasurements[key]}if(existingCode)snapshot.__productCode=existingCode;if(existingMeasurements.__storageLocation)snapshot.__storageLocation=existingMeasurements.__storageLocation;if(existingImage!==undefined)snapshot.__productImage=existingImage;if(existingSoldAt){snapshot.__soldAt=existingSoldAt;snapshot.__status="sold"}const updated={...editProduct,...d,uploadSites:existingUploads,measurements:snapshot,updatedAt:new Date().toISOString()};if(existingSoldAt)updated.soldAt=existingSoldAt;const button=$("editSave");button.disabled=true;button.textContent="저장 중…";try{if(window.SelectCloud&&SelectCloud.user){await SelectCloud.saveSaved(updated)}else saveLocalSavedProduct(updated);const brands=JSON.parse(localStorage.getItem("select-saved-brands")||"[]");if(d.brand&&!brands.some(b=>String(b).toLowerCase()===d.brand.toLowerCase()))localStorage.setItem("select-saved-brands",JSON.stringify([d.brand,...brands]));$("editStatus").textContent="수정 내용을 저장했습니다.";await loadSaved();setTimeout(closeEdit,350)}catch(error){$("editStatus").textContent=error.message||"저장하지 못했습니다."}finally{button.disabled=false;button.textContent="수정 내용 저장"}}
     const detailRequests=new Map();
     async function hydrateSaved(id){
       let product=saved.find(p=>String(p.id)===String(id));if(!product?._summary)return product;
@@ -148,5 +149,8 @@
     $("detailClose").onclick=closeDetail;$("detailCopy").onclick=copyDetail;$("detailOverlay").onclick=e=>{if(e.target===$("detailOverlay"))closeDetail()};
     $("query").oninput=()=>{page=1;render()};$("prev").onclick=()=>{if(page>1){page--;render()}};$("next").onclick=()=>{page++;render()};let refreshPromise=null;async function refreshCloud(){if(refreshPromise)return refreshPromise;refreshPromise=(async()=>{const button=$("cloudSync");if(button){button.disabled=true;button.textContent="새로고침 중…"}try{await loadSaved();if(SelectCloud.user)SelectCloud.setStatus(`${SelectCloud.user.email} · 동기화 완료`)}catch(error){SelectCloud.setStatus(error.message||"동기화에 실패했습니다.")}finally{if(button){button.disabled=false;button.textContent="↻ 지금 동기화"}}})();try{return await refreshPromise}finally{refreshPromise=null}}$("cloudSync").onclick=refreshCloud;SelectCloud.bindAuth(refreshCloud);
   </script>
+  <script src="../assets/vendor/jszip.min.js?v=3.10.1"></script>
+  <script src="./bunjang-export-core.js?v=1"></script>
+  <script src="./bunjang-export.js?v=1"></script>
 </body>
 </html>

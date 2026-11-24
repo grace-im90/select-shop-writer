@@ -10,6 +10,15 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const photo = { src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j9xkAAAAASUVORK5CYII=' };
 const photo2 = { src: 'data:image/jpeg;base64,/9j/2Q==' };
 const tick = () => new Promise(resolve => setTimeout(resolve, 5));
+test('bulk export metadata survives ordinary edits and completion clears the pending marker',async()=>{
+  const row=fixture(1);row.measurements.__bunjangPhotos=[photo,photo2];row.measurements.__bunjangPhotoCount=2;row.measurements.__bunjangSettings={categoryId:320210500};row.measurements.__bunjangExport={pendingAt:'2026-11-24',batchId:'example'};
+  const a=harness([row]);
+  try{
+    await until(()=>a.images().length===1);await a.run('editSaved(0)');a.el('editDescription').value='수정한 본문';await a.run('saveEdit()');
+    let stored=a.db.get('1').measurements;assert.deepEqual(stored.__bunjangPhotos,[photo,photo2]);assert.equal(stored.__bunjangPhotoCount,2);assert.equal(stored.__bunjangSettings.categoryId,320210500);assert.equal(stored.__bunjangExport.batchId,'example');
+    await a.run('toggleUploadSite(0,"bunjang",true,document.querySelector("[data-upload-site=bunjang]"))');stored=a.db.get('1').measurements;assert.equal(stored.__uploadSites.bunjang,true);assert.equal(stored.__bunjangExport.pendingAt,null);assert.deepEqual(stored.__bunjangPhotos,[photo,photo2]);
+  }finally{await a.close();}
+});
 async function until(predicate) { for (let i=0;i<100;i++) { if (predicate()) return; await tick(); } assert.fail('UI did not reach the expected state'); }
 function fixture(id, image = photo) {
   return { id, brand:'브랜드', name:'상품 '+id, product_type:'상의', size:'M', condition:'A 매우 좋은 상태',
