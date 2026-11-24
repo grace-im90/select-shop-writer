@@ -5,8 +5,7 @@ const base = new URL('https://grace-im90.github.io/select-shop-writer/');
 const paths = [
   'index.html', 'products/index.html', 'products/sold/index.html',
   'cloud.js', 'cloud-core.js', 'cloud-patches.js', 'product-editor.js',
-  'products/management.js', 'products/storage.js', 'products/photo-cache.js', 'title-copy.js',
-  'products/bunjang-export-core.js', 'products/bunjang-export.js', 'products/bunjang-export.css'
+  'products/management.js', 'products/storage.js', 'products/photo-cache.js', 'title-copy.js'
 ];
 const expected = new Map(await Promise.all(paths.map(async path => [path, await readFile(new URL('../' + path, import.meta.url), 'utf8')])));
 let failures = [];

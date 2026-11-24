@@ -8,7 +8,6 @@
   <link rel="manifest" href="../manifest.webmanifest?v=1">
   <meta name="theme-color" content="#356AE6">
   <meta name="apple-mobile-web-app-title" content="셀렉상회">
-  <link rel="stylesheet" href="./bunjang-export.css?v=1">
   <style>
     :root{--ink:#172033;--muted:#687386;--blue:#356ae6;--soft:#eaf1ff;--line:#dfe5ed;--bg:#f4f7fb;--ok:#12a875}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Pretendard,"Apple SD Gothic Neo","Noto Sans KR",Arial,sans-serif}button,input{font:inherit}button{cursor:pointer}
@@ -149,8 +148,5 @@
     $("detailClose").onclick=closeDetail;$("detailCopy").onclick=copyDetail;$("detailOverlay").onclick=e=>{if(e.target===$("detailOverlay"))closeDetail()};
     $("query").oninput=()=>{page=1;render()};$("prev").onclick=()=>{if(page>1){page--;render()}};$("next").onclick=()=>{page++;render()};let refreshPromise=null;async function refreshCloud(){if(refreshPromise)return refreshPromise;refreshPromise=(async()=>{const button=$("cloudSync");if(button){button.disabled=true;button.textContent="새로고침 중…"}try{await loadSaved();if(SelectCloud.user)SelectCloud.setStatus(`${SelectCloud.user.email} · 동기화 완료`)}catch(error){SelectCloud.setStatus(error.message||"동기화에 실패했습니다.")}finally{if(button){button.disabled=false;button.textContent="↻ 지금 동기화"}}})();try{return await refreshPromise}finally{refreshPromise=null}}$("cloudSync").onclick=refreshCloud;SelectCloud.bindAuth(refreshCloud);
   </script>
-  <script src="../assets/vendor/jszip.min.js?v=3.10.1"></script>
-  <script src="./bunjang-export-core.js?v=1"></script>
-  <script src="./bunjang-export.js?v=1"></script>
 </body>
 </html>
